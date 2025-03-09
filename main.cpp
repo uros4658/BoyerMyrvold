@@ -196,6 +196,8 @@ int main() {
 }
 
 
+
+
 // TODO: Implement a proper embedding structure (half-edge or doubly linked face representation)
 
 // TODO: Maintain a doubly linked list of faces for incremental embedding
