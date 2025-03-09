@@ -1,9 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <algorithm>
 #include <stdexcept>
 #include <functional>
+#include <set>
+#include <unordered_map>
 using namespace std;
 
 // Graph class
@@ -125,175 +128,6 @@ public:
     }
 };
 
-// ----------------------------- Boyer‑Myrvold Planarity Test -----------------------------
-class BoyerMyrvold {
-public:
-    Graph& g;
-    vector<bool> visited;
-    vector<int> dfsNum, dfsLow, parent;
-    vector<vector<int>> biconnectedComponents;
-    stack<pair<int, int>> edgeStack;
-    int time;
-
-    BoyerMyrvold(Graph& graph) : g(graph), time(0) {
-        visited.resize(g.V, false);
-        dfsNum.resize(g.V, -1);
-        dfsLow.resize(g.V, -1);
-        parent.resize(g.V, -1);
-    }
-
-    // Check if graph is K₅ (complete graph on 5 vertices)
-    bool isK5() {
-        if (g.V < 5) return false;
-
-        // Count vertices with degree 4 or more
-        int highDegreeVerts = 0;
-        for (int i = 0; i < g.V; i++) {
-            if (g.adj[i].size() >= 4) highDegreeVerts++;
-        }
-
-        if (highDegreeVerts < 5) return false;
-
-        // Identify first 5 vertices with degree 4+
-        vector<int> candidates;
-        for (int i = 0; i < g.V && candidates.size() < 5; i++) {
-            if (g.adj[i].size() >= 4) candidates.push_back(i);
-        }
-
-        // Check if they form a complete subgraph
-        for (int i = 0; i < 5; i++) {
-            for (int j = i + 1; j < 5; j++) {
-                int u = candidates[i];
-                int v = candidates[j];
-                if (find(g.adj[u].begin(), g.adj[u].end(), v) == g.adj[u].end()) {
-                    return false; // Edge missing between these vertices
-                }
-            }
-        }
-        return true;
-    }
-
-    // Check if graph contains K₃,₃
-    bool hasK33Subgraph() {
-        // This is a simplified check - a complete implementation would
-        // require more sophisticated algorithms
-        if (g.V < 6) return false;
-
-        // A preliminary check: K₃,₃ requires at least 6 vertices with degree ≥ 3
-        int vertexCount = 0;
-        for (int i = 0; i < g.V; i++) {
-            if (g.adj[i].size() >= 3) vertexCount++;
-        }
-        return vertexCount >= 6 && edgeCount() >= 9; // K₃,₃ has 9 edges
-    }
-
-    int edgeCount() {
-        int count = 0;
-        for (int i = 0; i < g.V; i++) {
-            count += g.adj[i].size();
-        }
-        return count / 2; // Each edge is counted twice
-    }
-
-    // Find biconnected components using Tarjan's algorithm
-    void findBiconnectedComponents() {
-        for (int i = 0; i < g.V; i++) {
-            if (dfsNum[i] == -1) {
-                dfsForBiconnected(i);
-            }
-        }
-    }
-
-    void dfsForBiconnected(int u) {
-        visited[u] = true;
-        dfsNum[u] = dfsLow[u] = time++;
-        int children = 0;
-
-        for (int v : g.adj[u]) {
-            if (dfsNum[v] == -1) {
-                children++;
-                parent[v] = u;
-                edgeStack.push({u, v});
-
-                dfsForBiconnected(v);
-                dfsLow[u] = min(dfsLow[u], dfsLow[v]);
-
-                if ((parent[u] == -1 && children > 1) ||
-                    (parent[u] != -1 && dfsLow[v] >= dfsNum[u])) {
-                    // Found an articulation point, extract the biconnected component
-                    vector<int> component;
-                    pair<int, int> edge;
-                    do {
-                        edge = edgeStack.top();
-                        edgeStack.pop();
-
-                        // Add unique vertices to component
-                        if (find(component.begin(), component.end(), edge.first) == component.end()) {
-                            component.push_back(edge.first);
-                        }
-                        if (find(component.begin(), component.end(), edge.second) == component.end()) {
-                            component.push_back(edge.second);
-                        }
-                    } while (edge.first != u || edge.second != v);
-
-                    biconnectedComponents.push_back(component);
-                }
-            }
-            else if (v != parent[u] && dfsNum[v] < dfsNum[u]) {
-                // Back edge
-                edgeStack.push({u, v});
-                dfsLow[u] = min(dfsLow[u], dfsNum[v]);
-            }
-        }
-    }
-
-    bool isPlanar() {
-        // Direct test for K₅
-        if (isK5()) {
-            return false;
-        }
-
-        // Direct test for K₃,₃
-        if (hasK33Subgraph()) {
-            return false;
-        }
-
-        // Find biconnected components to test each separately
-        findBiconnectedComponents();
-
-        // Apply Euler's formula check for each biconnected component
-        for (auto& component : biconnectedComponents) {
-            // Extract the subgraph for this component
-            unordered_map<int, int> vertexMap;
-            for (int i = 0; i < component.size(); i++) {
-                vertexMap[component[i]] = i;
-            }
-
-            Graph subgraph(component.size());
-            for (int u : component) {
-                for (int v : g.adj[u]) {
-                    if (find(component.begin(), component.end(), v) != component.end()) {
-                        subgraph.addEdge(vertexMap[u], vertexMap[v]);
-                    }
-                }
-            }
-
-            // Check Euler's formula: E <= 3V - 6 for a maximal planar graph
-            int V = subgraph.V;
-            int E = 0;
-            for (int i = 0; i < V; i++) {
-                E += subgraph.adj[i].size();
-            }
-            E /= 2; // Each edge is counted twice
-
-            if (V >= 3 && E > 3*V - 6) {
-                return false; // Too many edges for a planar graph
-            }
-        }
-
-        return true; // All tests passed, graph is planar
-    }
-};
 // ----------------------------- Embedding Structure (Half-Edge Representation) -----------------------------
 class HalfEdge {
 public:
@@ -447,9 +281,448 @@ public:
     }
 };
 
-// ----------------------------- Main Program -----------------------------
+// ----------------------------- Boyer‑Myrvold Planarity Test -----------------------------
+class BoyerMyrvold {
+public:
+    Graph& g;
+    vector<bool> visited;
+    vector<int> dfsNum, dfsLow, parent;
+    vector<vector<int>> biconnectedComponents;
+    stack<pair<int, int>> edgeStack;
+    int time;
+
+    BoyerMyrvold(Graph& graph) : g(graph), time(0) {
+        visited.resize(g.V, false);
+        dfsNum.resize(g.V, -1);
+        dfsLow.resize(g.V, -1);
+        parent.resize(g.V, -1);
+    }
+
+    // Check if graph is K₅ (complete graph on 5 vertices)
+    bool isK5() {
+        if (g.V < 5) return false;
+
+        // Find 5 vertices with degree at least 4
+        vector<int> candidates;
+        for (int i = 0; i < g.V && candidates.size() < 5; i++) {
+            if (g.adj[i].size() >= 4) candidates.push_back(i);
+        }
+
+        if (candidates.size() < 5) return false;
+
+        // Check if they form a complete subgraph
+        for (int i = 0; i < 5; i++) {
+            for (int j = i + 1; j < 5; j++) {
+                int u = candidates[i];
+                int v = candidates[j];
+                // Check if v is in the adjacency list of u
+                auto it = find(g.adj[u].begin(), g.adj[u].end(), v);
+                if (it == g.adj[u].end()) {
+                    return false; // Edge missing
+                }
+            }
+        }
+        return true;
+    }
+    // Improved K3,3 detection - more efficient and appropriate
+    bool hasK33Subgraph() {
+        // Quick check - K3,3 needs at least 6 vertices and 9 edges
+        if (g.V < 6) return false;
+
+        int totalEdges = edgeCount();
+        if (totalEdges < 9) return false;
+
+        // Check biconnected components - K3,3 must be in a single biconnected component
+        findBiconnectedComponents();
+
+        for (const auto& component : biconnectedComponents) {
+            // Need at least 6 vertices in the component
+            if (component.size() < 6) continue;
+
+            // Create subgraph for this component
+            unordered_map<int, int> vertexMap;
+            for (int i = 0; i < component.size(); i++) {
+                vertexMap[component[i]] = i;
+            }
+
+            Graph subgraph(component.size());
+            int edgeCount = 0;
+
+            // Build the subgraph
+            for (int u : component) {
+                for (int v : g.adj[u]) {
+                    if (vertexMap.find(v) != vertexMap.end() && u < v) {
+                        subgraph.addEdge(vertexMap[u], vertexMap[v]);
+                        edgeCount++;
+                    }
+                }
+            }
+
+            // Quick edge density check (K3,3 has 9 edges for 6 vertices)
+            if (edgeCount < 9) continue;
+
+            // Check for bipartite structure with each part having 3 vertices
+            if (checkForK33Structure(subgraph)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool checkForK33Structure(const Graph& subgraph) {
+        // Try to find a bipartite partition where each part has 3 vertices
+        vector<int> partition(subgraph.V, -1); // -1 unassigned, 0 set A, 1 set B
+
+        // Try different starting configurations
+        for (int start = 0; start < subgraph.V; start++) {
+            fill(partition.begin(), partition.end(), -1);
+
+            // Start with vertex in set A
+            partition[start] = 0;
+
+            // Use BFS to build bipartite partition
+            queue<int> q;
+            q.push(start);
+
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+
+                for (int v : subgraph.adj[u]) {
+                    if (partition[v] == -1) {
+                        // Assign opposite partition
+                        partition[v] = 1 - partition[u];
+                        q.push(v);
+                    } else if (partition[v] == partition[u]) {
+                        // Not bipartite
+                        break;
+                    }
+                }
+            }
+
+            // Check if we have a valid partition with 3 vertices in each set
+            int countA = 0, countB = 0;
+            for (int p : partition) {
+                if (p == 0) countA++;
+                else if (p == 1) countB++;
+            }
+
+            if (countA == 3 && countB == 3) {
+                // Check if all possible edges between sets exist
+                bool isK33 = true;
+                for (int i = 0; i < subgraph.V; i++) {
+                    if (partition[i] == 0) {
+                        for (int j = 0; j < subgraph.V; j++) {
+                            if (partition[j] == 1) {
+                                if (find(subgraph.adj[i].begin(), subgraph.adj[i].end(), j)
+                                    == subgraph.adj[i].end()) {
+                                    isK33 = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!isK33) break;
+                    }
+                }
+
+                if (isK33) return true;
+            }
+        }
+
+        return false;
+    }
+
+    int edgeCount() {
+        int count = 0;
+        for (int i = 0; i < g.V; i++) {
+            count += g.adj[i].size();
+        }
+        return count / 2; // Each edge is counted twice
+    }
+    // Find biconnected components using Tarjan's algorithm
+    void findBiconnectedComponents() {
+        biconnectedComponents.clear();
+        time = 0;
+
+        // Reset all arrays
+        fill(visited.begin(), visited.end(), false);
+        fill(dfsNum.begin(), dfsNum.end(), -1);
+        fill(dfsLow.begin(), dfsLow.end(), -1);
+        fill(parent.begin(), parent.end(), -1);
+
+        // Empty the stack just to be safe
+        while (!edgeStack.empty()) {
+            edgeStack.pop();
+        }
+
+        for (int i = 0; i < g.V; i++) {
+            if (dfsNum[i] == -1) {
+                dfsForBiconnected(i);
+
+                // Process any remaining edges in the stack for this connected component
+                if (!edgeStack.empty()) {
+                    vector<int> component;
+                    while (!edgeStack.empty()) {
+                        pair<int, int> edge = edgeStack.top();
+                        edgeStack.pop();
+
+                        // Add unique vertices to component
+                        if (find(component.begin(), component.end(), edge.first) == component.end()) {
+                            component.push_back(edge.first);
+                        }
+                        if (find(component.begin(), component.end(), edge.second) == component.end()) {
+                            component.push_back(edge.second);
+                        }
+                    }
+
+                    // Only add component if it has at least 3 vertices (minimum for a biconnected component)
+                    if (component.size() >= 3) {
+                        biconnectedComponents.push_back(component);
+                    }
+                }
+            }
+        }
+    }
+
+    void dfsForBiconnected(int u) {
+        visited[u] = true;
+        dfsNum[u] = dfsLow[u] = time++;
+        int children = 0;
+
+        for (int v : g.adj[u]) {
+            if (dfsNum[v] == -1) {
+                children++;
+                parent[v] = u;
+                edgeStack.push({u, v});
+
+                dfsForBiconnected(v);
+                dfsLow[u] = min(dfsLow[u], dfsLow[v]);
+
+                if ((parent[u] == -1 && children > 1) ||
+                    (parent[u] != -1 && dfsLow[v] >= dfsNum[u])) {
+                    // Found an articulation point, extract the biconnected component
+                    vector<int> component;
+                    pair<int, int> edge;
+                    do {
+                        edge = edgeStack.top();
+                        edgeStack.pop();
+
+                        // Add unique vertices to component
+                        if (find(component.begin(), component.end(), edge.first) == component.end()) {
+                            component.push_back(edge.first);
+                        }
+                        if (find(component.begin(), component.end(), edge.second) == component.end()) {
+                            component.push_back(edge.second);
+                        }
+                    } while (!edgeStack.empty() && (edge.first != u || edge.second != v));
+
+                    biconnectedComponents.push_back(component);
+                }
+            }
+            else if (v != parent[u] && dfsNum[v] < dfsNum[u]) {
+                // Back edge
+                edgeStack.push({u, v});
+                dfsLow[u] = min(dfsLow[u], dfsNum[v]);
+            }
+        }
+    }
+
+    bool isPlanar() {
+        // Direct test for K₅
+        if (isK5()) {
+            return false;
+        }
+
+        // Direct test for K₃,₃
+        if (hasK33Subgraph()) {
+            return false;
+        }
+
+        // Use Euler's formula for a quick check on the whole graph
+        if (g.V >= 3) {
+            int E = edgeCount();
+            if (E > 3*g.V - 6) {
+                return false; // Too many edges for a planar graph
+            }
+        }
+
+        // Find biconnected components to test each separately
+        findBiconnectedComponents();
+
+        // Apply planarity test for each biconnected component
+        for (auto& component : biconnectedComponents) {
+            // Extract the subgraph for this component
+            unordered_map<int, int> vertexMap;
+            for (int i = 0; i < component.size(); i++) {
+                vertexMap[component[i]] = i;
+            }
+
+            Graph subgraph(component.size());
+            for (int u : component) {
+                for (int v : g.adj[u]) {
+                    if (vertexMap.find(v) != vertexMap.end() && u < v) {
+                        subgraph.addEdge(vertexMap[u], vertexMap[v]);
+                    }
+                }
+            }
+
+            // Check if this component is planar
+            if (!isPlanarComponent(subgraph)) {
+                return false;
+            }
+        }
+
+        return true; // All components are planar
+    }
+
+    bool isPlanarComponent(const Graph& component) {
+        // For small components, planarity is guaranteed
+        if (component.V <= 4) return true;
+
+        // Perform simplified Boyer-Myrvold embedding test
+        return tryPlanarEmbedding(component);
+    }
+
+    bool tryPlanarEmbedding(const Graph& component) {
+        // We'll implement a simplified version of the Boyer-Myrvold algorithm
+        // This performs a DFS-based embedding approach
+
+        vector<bool> visited(component.V, false);
+        vector<int> dfsOrder;
+        vector<int> parentInDFS(component.V, -1);
+
+        // Step 1: DFS traversal to establish ordering
+        dfs(component, 0, visited, dfsOrder, parentInDFS);
+
+        // Step 2: Initialize empty embedding
+        vector<vector<int>> embedding(component.V);
+
+        // Step 3: Add edges in DFS tree first
+        for (int i = 0; i < component.V; i++) {
+            for (int neighbor : component.adj[i]) {
+                if (parentInDFS[i] == neighbor || parentInDFS[neighbor] == i) {
+                    // This is a tree edge, add it to embedding
+                    addEdgeToEmbedding(embedding, i, neighbor);
+                }
+            }
+        }
+
+        // Step 4: Add back edges while preserving planarity
+        for (int i = 0; i < component.V; i++) {
+            for (int neighbor : component.adj[i]) {
+                if (parentInDFS[i] != neighbor && parentInDFS[neighbor] != i) {
+                    // This is a back edge
+                    if (!canAddEdgeToEmbedding(embedding, i, neighbor)) {
+                        return false; // Cannot embed this edge without crossing
+                    }
+                    addEdgeToEmbedding(embedding, i, neighbor);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    void dfs(const Graph& component, int u, vector<bool>& visited,
+             vector<int>& dfsOrder, vector<int>& parent) {
+        visited[u] = true;
+        dfsOrder.push_back(u);
+
+        for (int v : component.adj[u]) {
+            if (!visited[v]) {
+                parent[v] = u;
+                dfs(component, v, visited, dfsOrder, parent);
+            }
+        }
+    }
+
+    void addEdgeToEmbedding(vector<vector<int>>& embedding, int u, int v) {
+        // Add edge in clockwise order around each vertex
+        embedding[u].push_back(v);
+        embedding[v].push_back(u);
+    }
+
+    bool canAddEdgeToEmbedding(vector<vector<int>>& embedding, int u, int v) {
+    // Step 1: Find all faces in the current embedding
+    vector<vector<int>> faces = findFaces(embedding);
+
+    // Step 2: Check if vertices u and v are on the same face
+    for (const auto& face : faces) {
+        bool containsU = false;
+        bool containsV = false;
+
+        for (int vertex : face) {
+            if (vertex == u) containsU = true;
+            if (vertex == v) containsV = true;
+        }
+
+        // If both vertices are on the same face, we can add the edge without crossing
+        if (containsU && containsV) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Helper method to find all faces in the current embedding
+vector<vector<int>> findFaces(const vector<vector<int>>& embedding) {
+    vector<vector<int>> faces;
+
+    // Keep track of visited edges to avoid duplicates
+    set<pair<int, int>> visitedEdges;
+
+    // Find faces by walking along the boundary
+    for (int start = 0; start < embedding.size(); start++) {
+        for (int adjVertex : embedding[start]) {
+            // Skip visited edges
+            if (visitedEdges.count({min(start, adjVertex), max(start, adjVertex)})) {
+                continue;
+            }
+
+            // Start a new face
+            vector<int> face;
+            int current = start;
+            int prev = -1;
+
+            do {
+                face.push_back(current);
+
+                // Mark this edge as visited
+                visitedEdges.insert({min(prev, current), max(prev, current)});
+
+                // Find the next edge in counterclockwise order
+                int next = -1;
+                if (prev != -1) {
+                    // Find the edge immediately counterclockwise from prev->current
+                    int prevIndex = distance(embedding[current].begin(),
+                                          find(embedding[current].begin(), embedding[current].end(), prev));
+
+                    // Get the next vertex in counterclockwise order
+                    next = embedding[current][(prevIndex + 1) % embedding[current].size()];
+                } else {
+                    // For the starting edge
+                    next = adjVertex;
+                }
+
+                prev = current;
+                current = next;
+
+            } while (current != start);
+
+            // Add the face if it's valid
+            if (face.size() > 2) {
+                faces.push_back(face);
+            }
+        }
+    }
+
+    return faces;
+}
+};
+
 int main() {
-    // Create a nonplanar graph (complete graph K_5)
     Graph g(5);
     g.addEdge(0, 1);
     g.addEdge(0, 2);
@@ -467,7 +740,7 @@ int main() {
     bc.findComponents();
     cout << "Found " << bc.components.size() << " biconnected components" << endl;
 
-    // Check planarity using improved Boyer-Myrvold implementation
+    // Check planarity using Boyer-Myrvold implementation
     BoyerMyrvold bm(g);
     if (bm.isPlanar()) {
         cout << "Graph is planar!" << endl;
@@ -510,3 +783,4 @@ int main() {
 
     return 0;
 }
+
