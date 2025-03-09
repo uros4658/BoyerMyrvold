@@ -198,14 +198,14 @@ int main() {
 
 
 
-// TODO: Implement a proper embedding structure (half-edge or doubly linked face representation)
+// 1 TODO: Implement a proper embedding structure (half-edge or doubly linked face representation)
 
-// TODO: Maintain a doubly linked list of faces for incremental embedding
+// 2 TODO: Maintain a doubly linked list of faces for incremental embedding
 
-// TODO: Modify DFS to correctly track edge insertions into faces
+// 3 TODO: Modify DFS to correctly track edge insertions into faces
 
-// TODO: Implement path merging logic for handling back edges properly
+// 4 TODO: Implement path merging logic for handling back edges properly
 
-// TODO: Ensure correct handling of lowpoints and face merging to maintain planarity
+// 5 TODO: Ensure correct handling of lowpoints and face merging to maintain planarity
 
-// TODO: Optimize face union-find operations for efficiency
+// 6 TODO: Optimize face union-find operations for efficiency
