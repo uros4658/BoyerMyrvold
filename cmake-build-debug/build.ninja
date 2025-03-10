@@ -49,11 +49,41 @@ cmake_ninja_workdir = C$:/Fakultet/Diplomski/Implementation/cmake-build-debug/
 
 build cmake_object_order_depends_target_Implementation: phony || .
 
-build CMakeFiles/Implementation.dir/main.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/main.cpp || cmake_object_order_depends_target_Implementation
-  DEP_FILE = CMakeFiles\Implementation.dir\main.cpp.obj.d
-  FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
+build CMakeFiles/Implementation.dir/src/main.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/main.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\main.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
   OBJECT_DIR = CMakeFiles\Implementation.dir
-  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
+
+build CMakeFiles/Implementation.dir/src/BiconnectedComponents.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/BiconnectedComponents.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\BiconnectedComponents.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
+
+build CMakeFiles/Implementation.dir/src/BoyerMyrvold.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/BoyerMyrvold.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\BoyerMyrvold.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
+
+build CMakeFiles/Implementation.dir/src/Embedding.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/Embedding.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\Embedding.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
+
+build CMakeFiles/Implementation.dir/src/FaceUnionFind.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/FaceUnionFind.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\FaceUnionFind.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
+
+build CMakeFiles/Implementation.dir/src/Graph.cpp.obj: CXX_COMPILER__Implementation_unscanned_Debug C$:/Fakultet/Diplomski/Implementation/src/Graph.cpp || cmake_object_order_depends_target_Implementation
+  DEP_FILE = CMakeFiles\Implementation.dir\src\Graph.cpp.obj.d
+  FLAGS = -g -std=gnu++17 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\Implementation.dir
+  OBJECT_FILE_DIR = CMakeFiles\Implementation.dir\src
 
 
 # =============================================================================
@@ -63,7 +93,7 @@ build CMakeFiles/Implementation.dir/main.cpp.obj: CXX_COMPILER__Implementation_u
 #############################################
 # Link the executable Implementation.exe
 
-build Implementation.exe: CXX_EXECUTABLE_LINKER__Implementation_Debug CMakeFiles/Implementation.dir/main.cpp.obj
+build Implementation.exe: CXX_EXECUTABLE_LINKER__Implementation_Debug CMakeFiles/Implementation.dir/src/main.cpp.obj CMakeFiles/Implementation.dir/src/BiconnectedComponents.cpp.obj CMakeFiles/Implementation.dir/src/BoyerMyrvold.cpp.obj CMakeFiles/Implementation.dir/src/Embedding.cpp.obj CMakeFiles/Implementation.dir/src/FaceUnionFind.cpp.obj CMakeFiles/Implementation.dir/src/Graph.cpp.obj
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\Implementation.dir
