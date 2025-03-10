@@ -10,4 +10,5 @@ add_executable(Implementation
         src/Embedding.cpp
         src/FaceUnionFind.cpp
         src/Graph.cpp
+        src/BoyerMyrvold.cpp
 )
