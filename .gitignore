@@ -1,0 +1,19 @@
+# Ignore everything
+*
+
+# Except the include and src directories
+!include/
+!src/
+!.gitignore
+
+# Only include .h and .cpp files in include and src directories
+include/*
+!include/**/*.h
+!include/**/*.cpp
+
+src/*
+!src/**/*.h
+!src/**/*.cpp
+
+# Except CMakeLists.txt
+!CMakeLists.txt
