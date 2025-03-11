@@ -23,6 +23,7 @@ private:
     std::vector<int> parent;
     std::vector<std::vector<int>> biconnectedComponents;
     std::stack<std::pair<int, int>> edgeStack;
+    int dfsCounter; // Add this as a class member variable
     int time;
 
     bool isPlanarComponent(const Graph& component);
@@ -36,8 +37,11 @@ private:
     std::vector<std::vector<int>> findFaces(const std::vector<std::vector<int>>& embedding);
     void dfsForBiconnected(int u, std::stack<std::pair<int, int>>& edgeStack);
     bool checkForK33Structure(const Graph& subgraph);
-
-    std::map<int, std::pair<int, int>> vertexCoordinates; // Assumed to be defined elsewhere
+    void computeDfsAndLowpoints(int v, std::vector<int>& dfsNum, std::vector<int>& dfsParent,
+        std::vector<int>& lowPoint, std::vector<bool>& visited, std::vector<std::vector<int>>& embedding,
+        const Graph& component);
+    bool areConnected(int u, int v);
+    std::map<int, std::pair<int, int>> vertexCoordinates;
 };
 
 #endif // BOYERMYRVOLD_H

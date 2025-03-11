@@ -91,9 +91,27 @@ int main() {
 }
 
 // TODO:
-// 1. Implement the `Graph` class with necessary methods like `addEdge`.
-// 2. Implement the `tryPlanarEmbedding` method with a complete Boyer-Myrvold planarity test.
-// 4. Implement the `findFaces` method to compute faces of the embedding.
-// 5. Optimize the `isK5` and `hasK33Subgraph` methods for better performance.
-// 6. Add error handling and edge cases for all methods.
-// 7. Write unit tests for all methods to ensure correctness.
+// 1. Implement the full Boyer-Myrvold algorithm with:
+//    - Proper embedding construction that returns the actual planar embedding
+//    - Kuratowski subgraph extraction for non-planar graphs (K5 or K3,3 subdivision)
+//    - DFS-based vertex addition in the correct order
+//    - Left-Right planarity test approach for biconnected components
+//    - Walkup and Walkdown procedures for efficient path finding
+//
+// 2. Improve the current implementation:
+//    - Replace geometric edge intersection with topological embedding
+//    - Remove dependency on vertex coordinates which aren't part of the algorithm
+//    - Implement proper face tracking during embedding
+//
+// 3. Add visualization features:
+//    - Output the planar embedding in a visual format
+//    - Visualize the Kuratowski subgraph when non-planar
+//
+// 4. Add test cases:
+//    - More complex planar and non-planar graphs
+//    - Performance testing with large graphs
+//    - Edge cases like disconnected graphs
+//
+// 5. Optimization:
+//    - Ensure linear-time complexity O(n) as per the original algorithm
+//    - Memory optimization for large graphs

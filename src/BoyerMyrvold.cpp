@@ -14,97 +14,126 @@ BoyerMyrvold::BoyerMyrvold(Graph& graph) : g(graph) {
 }
 
 bool BoyerMyrvold::isK5() {
-    // Check if graph contains K5 (complete graph on 5 vertices)
+    // A K5 subgraph requires at least 5 vertices
     if (g.V < 5) return false;
 
-    // Find a potential K5 subgraph
+    // Use a more efficient approach to find K5
+    // K5 requires every vertex to have degree at least 4
+    vector<int> highDegVertices;
     for (int i = 0; i < g.V; i++) {
-        if (g.adj[i].size() < 4) continue; // Not enough connections
-
-        // Select 4 neighbors
-        vector<int> potential;
-        for (int neighbor : g.adj[i]) {
-            potential.push_back(neighbor);
-            if (potential.size() == 4) break;
+        if (g.adj[i].size() >= 4) {
+            highDegVertices.push_back(i);
+            if (highDegVertices.size() >= 5) {
+                // We have 5+ candidates, check if they form K5
+                break;
+            }
         }
+    }
 
-        if (potential.size() < 4) continue;
+    // Not enough high-degree vertices
+    if (highDegVertices.size() < 5) return false;
 
-        // Check if these 4 neighbors form a complete graph
-        bool isComplete = true;
-        for (int j = 0; j < 4; j++) {
-            for (int k = j+1; k < 4; k++) {
-                bool connected = false;
-                for (int n : g.adj[potential[j]]) {
-                    if (n == potential[k]) {
-                        connected = true;
-                        break;
+    // Try to find a K5 using the candidates
+    for (size_t i1 = 0; i1 < highDegVertices.size(); i1++) {
+        for (size_t i2 = i1+1; i2 < highDegVertices.size(); i2++) {
+            for (size_t i3 = i2+1; i3 < highDegVertices.size(); i3++) {
+                for (size_t i4 = i3+1; i4 < highDegVertices.size(); i4++) {
+                    for (size_t i5 = i4+1; i5 < highDegVertices.size(); i5++) {
+                        int v1 = highDegVertices[i1];
+                        int v2 = highDegVertices[i2];
+                        int v3 = highDegVertices[i3];
+                        int v4 = highDegVertices[i4];
+                        int v5 = highDegVertices[i5];
+
+                        // Check if these 5 vertices form a complete graph
+                        if (areConnected(v1, v2) && areConnected(v1, v3) && areConnected(v1, v4) && areConnected(v1, v5) &&
+                            areConnected(v2, v3) && areConnected(v2, v4) && areConnected(v2, v5) &&
+                            areConnected(v3, v4) && areConnected(v3, v5) &&
+                            areConnected(v4, v5)) {
+                            return true;
+                        }
                     }
                 }
-                if (!connected) {
-                    isComplete = false;
-                    break;
-                }
             }
-            if (!isComplete) break;
         }
-
-        if (isComplete) return true;
     }
 
     return false;
 }
 
+// Helper method to check if two vertices are connected
+bool BoyerMyrvold::areConnected(int u, int v) {
+    for (int w : g.adj[u]) {
+        if (w == v) return true;
+    }
+    return false;
+}
+
 bool BoyerMyrvold::hasK33Subgraph() {
-    // Check for K3,3 (complete bipartite graph with 3 vertices in each part)
+    // K3,3 requires at least 6 vertices
     if (g.V < 6) return false;
 
-    // Try to find two sets of 3 vertices each
-    // This is a simplified check - would need backtracking for a complete solution
+    // A vertex in K3,3 has degree at least 3
+    vector<int> candidates;
     for (int i = 0; i < g.V; i++) {
-        if (g.adj[i].size() < 3) continue;
-
-        vector<int> setA = {i};
-        vector<int> setB;
-
-        // Find potential members for set B
-        for (int j : g.adj[i]) {
-            setB.push_back(j);
-            if (setB.size() == 3) break;
+        if (g.adj[i].size() >= 3) {
+            candidates.push_back(i);
         }
+    }
 
-        if (setB.size() < 3) continue;
+    // Need at least 6 candidates
+    if (candidates.size() < 6) return false;
 
-        // Try to find two more vertices for set A
-        for (int j = 0; j < g.V; j++) {
-            if (j == i) continue;
+    // Try all possible ways to partition the candidates into two sets of 3
+    int n = candidates.size();
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            for (int k = j + 1; k < n; k++) {
+                // First set: candidates[i], candidates[j], candidates[k]
+                vector<int> setA = {candidates[i], candidates[j], candidates[k]};
 
-            bool connected = true;
-            for (int b : setB) {
-                bool found = false;
-                for (int neighbor : g.adj[j]) {
-                    if (neighbor == b) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    connected = false;
-                    break;
-                }
-            }
+                // Find all vertices connected to all three vertices in setA
+                vector<int> potentialSetB;
+                for (int v = 0; v < g.V; v++) {
+                    if (find(setA.begin(), setA.end(), v) != setA.end())
+                        continue; // Skip vertices in setA
 
-            if (connected) {
-                setA.push_back(j);
-                if (setA.size() == 3) {
-                    // Check if the graph formed by setA and setB is K3,3
-                    Graph subgraph(6);
-                    for (int a = 0; a < 3; a++) {
-                        for (int b = 0; b < 3; b++) {
-                            subgraph.addEdge(a, b+3);
+                    bool connectedToAll = true;
+                    for (int u : setA) {
+                        if (!areConnected(u, v)) {
+                            connectedToAll = false;
+                            break;
                         }
                     }
-                    return checkForK33Structure(subgraph);
+                    if (connectedToAll) {
+                        potentialSetB.push_back(v);
+                    }
+                }
+
+                // Check if we can form setB with at least 3 vertices
+                if (potentialSetB.size() >= 3) {
+                    // Try all combinations of 3 vertices for setB
+                    for (size_t i2 = 0; i2 < potentialSetB.size(); i2++) {
+                        for (size_t j2 = i2 + 1; j2 < potentialSetB.size(); j2++) {
+                            for (size_t k2 = j2 + 1; k2 < potentialSetB.size(); k2++) {
+                                vector<int> setB = {potentialSetB[i2], potentialSetB[j2], potentialSetB[k2]};
+
+                                // Check if each vertex in setB is connected to all vertices in setA
+                                bool isK33 = true;
+                                for (int b : setB) {
+                                    for (int a : setA) {
+                                        if (!areConnected(a, b)) {
+                                            isK33 = false;
+                                            break;
+                                        }
+                                    }
+                                    if (!isK33) break;
+                                }
+
+                                if (isK33) return true;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -250,35 +279,95 @@ bool BoyerMyrvold::isPlanarComponent(const Graph& component) {
     return tryPlanarEmbedding(component);
 }
 
+
+void BoyerMyrvold::computeDfsAndLowpoints(int v, vector<int>& dfsNum, vector<int>& dfsParent,
+    vector<int>& lowPoint, vector<bool>& visited, vector<vector<int>>& embedding,
+    const Graph& component) {
+
+    visited[v] = true;
+    dfsNum[v] = dfsCounter++;
+    lowPoint[v] = dfsNum[v];
+
+    for (int w : component.adj[v]) {
+        if (!visited[w]) {
+            dfsParent[w] = v;
+            computeDfsAndLowpoints(w, dfsNum, dfsParent, lowPoint, visited, embedding, component);
+            lowPoint[v] = min(lowPoint[v], lowPoint[w]);
+
+            // Initialize the embedding with tree edges
+            embedding[v].push_back(w);
+            embedding[w].push_back(v);
+        } else if (w != dfsParent[v]) {
+            lowPoint[v] = min(lowPoint[v], dfsNum[w]);
+        }
+    }
+}
+
 bool BoyerMyrvold::tryPlanarEmbedding(const Graph& component) {
     int n = component.V;
     vector<vector<int>> embedding(n);
-    vector<bool> compVisited(n, false);
-    vector<int> dfsOrder;
-    vector<int> compParent(n, -1);
+    vector<int> dfsNum(n, -1);
+    vector<int> dfsParent(n, -1);
+    vector<int> lowPoint(n, -1);
+    vector<bool> visited(n, false);
+    vector<vector<int>> nesting(n);
+    vector<vector<int>> separated(n);
 
-    // DFS to get ordering
+    // Step 1: Perform DFS and compute lowpoints
+    dfsCounter = 0;
+    computeDfsAndLowpoints(0, dfsNum, dfsParent, lowPoint, visited, embedding, component);
+
+    // Step 2: Process vertices in reverse DFS order
+    vector<int> reverseDfs;
     for (int i = 0; i < n; i++) {
-        if (!compVisited[i]) {
-            dfs(component, i, compVisited, dfsOrder, compParent);
+        if (dfsNum[i] != -1) {
+            reverseDfs.push_back(i);
         }
     }
+    sort(reverseDfs.begin(), reverseDfs.end(), [&](int a, int b) {
+        return dfsNum[a] > dfsNum[b];
+    });
 
-    // Try adding edges in DFS order
-    for (int u : dfsOrder) {
-        for (int v : component.adj[u]) {
-            if (canAddEdgeToEmbedding(embedding, u, v)) {
-                addEdgeToEmbedding(embedding, u, v);
-            } else {
-                return false; // Cannot embed edge (u,v)
+    // Step 3: Perform embedding and planarity testing
+    for (int v : reverseDfs) {
+        if (v == 0) continue; // Skip the root
+
+        int parent = dfsParent[v];
+
+        // Check each back edge from v
+        for (int w : component.adj[v]) {
+            if (dfsParent[w] != v && dfsNum[w] < dfsNum[v]) {
+                // w is an ancestor of v, this is a back edge
+
+                // Check if this back edge can be embedded without crossing
+                bool canEmbed = true;
+                for (int sep : separated[v]) {
+                    if (dfsNum[sep] <= dfsNum[w] && dfsNum[w] < dfsNum[v]) {
+                        canEmbed = false;
+                        break;
+                    }
+                }
+
+                if (!canEmbed) {
+                    return false; // Graph is not planar
+                }
+
+                // Add the back edge to the embedding
+                embedding[v].push_back(w);
+                embedding[w].push_back(v);
+
+                // Update nesting information
+                nesting[parent].push_back(w);
             }
         }
+
+        // Merge separated paths
+        for (int nest : nesting[v]) {
+            separated[parent].push_back(nest);
+        }
     }
 
-    // Find faces (optional verification step)
-    vector<vector<int>> faces = findFaces(embedding);
-
-    return true;
+    return true; // Graph is planar
 }
 
 void BoyerMyrvold::dfs(const Graph& component, int u, vector<bool>& visited,
@@ -374,9 +463,55 @@ bool BoyerMyrvold::onSegment(pair<int, int> p, pair<int, int> q, pair<int, int> 
 }
 
 vector<vector<int>> BoyerMyrvold::findFaces(const vector<vector<int>>& embedding) {
-    // Compute faces of the embedding
+    int n = embedding.size();
     vector<vector<int>> faces;
-    // This would be a complex implementation to find all faces
-    // Simplified placeholder
+
+    // Keep track of visited edges to avoid traversing them twice
+    vector<vector<bool>> visited(n, vector<bool>(n, false));
+
+    for (int u = 0; u < n; u++) {
+        for (int v : embedding[u]) {
+            if (!visited[u][v]) {
+                // Start a new face
+                vector<int> face;
+                int curr = u;
+                int prev = -1;
+
+                // Traverse the face
+                while (true) {
+                    face.push_back(curr);
+
+                    // Mark the edge as visited in both directions
+                    if (prev != -1) {
+                        visited[prev][curr] = true;
+                        visited[curr][prev] = true;
+                    }
+
+                    // Find the next edge in the face
+                    int next = -1;
+                    for (int i = 0; i < embedding[curr].size(); i++) {
+                        int neighbor = embedding[curr][i];
+                        if (neighbor != prev && !visited[curr][neighbor]) {
+                            next = neighbor;
+                            break;
+                        }
+                    }
+
+                    if (next == -1 || next == u) {
+                        break; // Complete the face
+                    }
+
+                    prev = curr;
+                    curr = next;
+                }
+
+                // Add the face if it has at least 3 vertices
+                if (face.size() >= 3) {
+                    faces.push_back(face);
+                }
+            }
+        }
+    }
+
     return faces;
 }
