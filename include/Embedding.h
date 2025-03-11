@@ -3,8 +3,6 @@
 
 #include <vector>
 
-using namespace std;
-
 struct HalfEdge;
 struct Face;
 
@@ -18,7 +16,7 @@ struct HalfEdge {
 };
 
 struct Face {
-    vector<HalfEdge*> boundary; // Half-edges that form the boundary
+    std::vector<HalfEdge*> boundary; // Half-edges that form the boundary
     Face* prev;                      // Previous face in the list
     Face* next;                      // Next face in the list
 
@@ -28,12 +26,12 @@ struct Face {
 
 class Embedding {
 public:
-    vector<HalfEdge*> halfEdges;  // All half-edges
-    vector<Face*> faces;          // All faces
+    std::vector<HalfEdge*> halfEdges;  // All half-edges
+    std::vector<Face*> faces;          // All faces
     Face* faceHead;                    // First face in the list
     int dfsTime;                       // For DFS
-    vector<int> disc;             // Discovery times
-    vector<int> low;              // Lowpoint values
+    std::vector<int> disc;             // Discovery times
+    std::vector<int> low;              // Lowpoint values
 
     Embedding();
     ~Embedding();
@@ -41,7 +39,7 @@ public:
     void addEdge(int u, int v);
     void addFace(Face* f);
     void constructFaces();
-    void dfsEmbeddingLowpoint(int u, vector<bool>& visited, vector<HalfEdge*>& lastEdge, const vector<vector<HalfEdge*>>& outgoing);
+    void dfsEmbeddingLowpoint(int u, std::vector<bool>& visited, std::vector<HalfEdge*>& lastEdge, const std::vector<std::vector<HalfEdge*>>& outgoing);
     void buildOutgoingMapLowpoint(int numVertices);
 };
 

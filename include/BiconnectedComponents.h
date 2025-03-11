@@ -5,14 +5,13 @@
 #include <vector>
 #include <stack>
 
-using namespace std;
 
 class BiconnectedComponents {
 public:
     Graph& graph;
-    vector<int> disc, low, parent;
-    stack<pair<int, int>> edgeStack;
-    vector<vector<pair<int, int>>> components;
+    std::vector<int> disc, low, parent;
+    std::stack<std::pair<int, int>> edgeStack;
+    std::vector<std::vector<std::pair<int, int>>> components;
     int time;
 
     BiconnectedComponents(Graph& g);

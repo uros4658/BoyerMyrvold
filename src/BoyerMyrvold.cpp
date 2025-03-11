@@ -302,9 +302,75 @@ void BoyerMyrvold::addEdgeToEmbedding(vector<vector<int>>& embedding, int u, int
 
 bool BoyerMyrvold::canAddEdgeToEmbedding(vector<vector<int>>& embedding, int u, int v) {
     // Check if adding edge (u,v) would create a crossing
-    // This is a simplified check - a real Boyer-Myrvold implementation
-    // would be more complex
-    return true; // Simplified, assume all edges can be added
+    for (int i = 0; i < embedding.size(); ++i) {
+        for (int j = 0; j < embedding[i].size(); ++j) {
+            int x = i;
+            int y = embedding[i][j];
+            if (x == u || x == v || y == u || y == v) {
+                continue; // Skip edges that share a vertex with (u,v)
+            }
+            if (doEdgesIntersect(u, v, x, y)) {
+                return false; // Found an intersection
+            }
+        }
+    }
+    return true; // No intersections found
+}
+
+bool BoyerMyrvold::doEdgesIntersect(int u1, int v1, int u2, int v2) {
+    // Helper function to check if edges (u1,v1) and (u2,v2) intersect
+    // This function assumes that the vertices are in a 2D plane and uses
+    // a geometric approach to check for intersection
+    // For simplicity, we assume vertices are points in a plane with coordinates
+    // stored in a map (vertex -> (x, y))
+
+    pair<int, int> p1 = vertexCoordinates[u1];
+    pair<int, int> q1 = vertexCoordinates[v1];
+    pair<int, int> p2 = vertexCoordinates[u2];
+    pair<int, int> q2 = vertexCoordinates[v2];
+
+    return doSegmentsIntersect(p1, q1, p2, q2);
+}
+
+bool BoyerMyrvold::doSegmentsIntersect(pair<int, int> p1, pair<int, int> q1, pair<int, int> p2, pair<int, int> q2) {
+    // Check if line segments (p1,q1) and (p2,q2) intersect
+    auto orientation = [](pair<int, int> p, pair<int, int> q, pair<int, int> r) {
+        int val = (q.second - p.second) * (r.first - q.first) - (q.first - p.first) * (r.second - q.second);
+        if (val == 0) return 0; // collinear
+        return (val > 0) ? 1 : 2; // clock or counterclock wise
+    };
+
+    int o1 = orientation(p1, q1, p2);
+    int o2 = orientation(p1, q1, q2);
+    int o3 = orientation(p2, q2, p1);
+    int o4 = orientation(p2, q2, q1);
+
+    // General case
+    if (o1 != o2 && o3 != o4) return true;
+
+    // Special cases
+    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
+    if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+
+    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
+    if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+
+    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
+    if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+
+    // p2, q2 and q1 are collinear and q1 lies on segment p2q2
+    if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+    return false; // Doesn't fall in any of the above cases
+}
+
+bool BoyerMyrvold::onSegment(pair<int, int> p, pair<int, int> q, pair<int, int> r) {
+    // Check if point q lies on line segment pr
+    if (q.first <= max(p.first, r.first) && q.first >= min(p.first, r.first) &&
+        q.second <= max(p.second, r.second) && q.second >= min(p.second, r.second)) {
+        return true;
+    }
+    return false;
 }
 
 vector<vector<int>> BoyerMyrvold::findFaces(const vector<vector<int>>& embedding) {

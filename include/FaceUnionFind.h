@@ -2,12 +2,11 @@
 #define FACE_UNION_FIND_H
 
 #include <vector>
-using namespace std;
 
 class FaceUnionFind {
 private:
-    vector<int> parent;
-    vector<int> rank;
+    std::vector<int> parent;
+    std::vector<int> rank;
 
 public:
     FaceUnionFind(int n);

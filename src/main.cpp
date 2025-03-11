@@ -89,3 +89,11 @@ int main() {
 
     return 0;
 }
+
+// TODO:
+// 1. Implement the `Graph` class with necessary methods like `addEdge`.
+// 2. Implement the `tryPlanarEmbedding` method with a complete Boyer-Myrvold planarity test.
+// 4. Implement the `findFaces` method to compute faces of the embedding.
+// 5. Optimize the `isK5` and `hasK33Subgraph` methods for better performance.
+// 6. Add error handling and edge cases for all methods.
+// 7. Write unit tests for all methods to ensure correctness.
