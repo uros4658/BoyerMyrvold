@@ -3,14 +3,193 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <queue>
+#include <functional>
+
 using namespace std;
 
-BoyerMyrvold::BoyerMyrvold(Graph& graph) : g(graph) {
+
+BoyerMyrvold::BoyerMyrvold(Graph& graph) : g(graph), kuratowskiSubgraph(0) {
     visited.resize(g.V, false);
     dfsNum.resize(g.V, 0);
     dfsLow.resize(g.V, 0);
     parent.resize(g.V, -1);
     time = 0;
+    embedding.resize(g.V); // Initialize embedding
+    initializeDataStructures(); // Add this line
+}
+
+void BoyerMyrvold::initializeDataStructures() {
+    // Initialize vertex sets
+    int n = g.V;
+    inEmbedding.resize(n, false);
+
+    // The Boyer-Myrvold algorithm doesn't need geometric coordinates
+    // So we can remove the dependency on vertexCoordinates
+}
+
+Graph BoyerMyrvold::extractKuratowskiSubgraph() {
+    if (!isPlanar()) {
+        // First try to find a K5 subdivision
+        Graph subgraph(g.V);
+        if (findK5Subdivision(subgraph)) {
+            return subgraph;
+        }
+
+        // If not found, try to find a K3,3 subdivision
+        subgraph = Graph(g.V); // Reset subgraph
+        if (findK33Subdivision(subgraph)) {
+            return subgraph;
+        }
+    }
+    return Graph(0); // Empty graph if no Kuratowski subgraph found
+}
+
+bool BoyerMyrvold::findK5Subdivision(Graph& subgraph) {
+    // Try to find 5 vertices that can be connected by disjoint paths
+    for (int v1 = 0; v1 < g.V; v1++) {
+        if (g.adj[v1].size() < 4) continue; // Need at least degree 4
+
+        for (int v2 : g.adj[v1]) {
+            for (int v3 : g.adj[v1]) {
+                if (v3 <= v2) continue;
+                for (int v4 : g.adj[v1]) {
+                    if (v4 <= v3) continue;
+                    for (int v5 : g.adj[v1]) {
+                        if (v5 <= v4) continue;
+
+                        // Try to find disjoint paths between all pairs of these vertices
+                        vector<int> vertices = {v1, v2, v3, v4, v5};
+                        bool foundSubdivision = true;
+
+                        for (int i = 0; i < 5; i++) {
+                            for (int j = i + 1; j < 5; j++) {
+                                // Skip path from v1 to others as we know they're adjacent
+                                if (i == 0) continue;
+
+                                vector<int> forbidden;
+                                for (int k = 0; k < 5; k++) {
+                                    if (k != i && k != j) forbidden.push_back(vertices[k]);
+                                }
+
+                                auto paths = findPaths(vertices[i], vertices[j], forbidden);
+                                if (paths.empty()) {
+                                    foundSubdivision = false;
+                                    break;
+                                }
+
+                                // Add the path to the subgraph
+                                for (int k = 0; k < paths[0].size() - 1; k++) {
+                                    subgraph.addEdge(paths[0][k], paths[0][k + 1]);
+                                }
+                            }
+                            if (!foundSubdivision) break;
+                        }
+
+                        if (foundSubdivision) return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool BoyerMyrvold::findK33Subdivision(Graph& subgraph) {
+    // Try to find two sets of 3 vertices that can be connected by disjoint paths
+    for (int u1 = 0; u1 < g.V; u1++) {
+        for (int u2 = u1 + 1; u2 < g.V; u2++) {
+            for (int u3 = u2 + 1; u3 < g.V; u3++) {
+                for (int v1 = 0; v1 < g.V; v1++) {
+                    if (v1 == u1 || v1 == u2 || v1 == u3) continue;
+
+                    for (int v2 = v1 + 1; v2 < g.V; v2++) {
+                        if (v2 == u1 || v2 == u2 || v2 == u3) continue;
+
+                        for (int v3 = v2 + 1; v3 < g.V; v3++) {
+                            if (v3 == u1 || v3 == u2 || v3 == u3) continue;
+
+                            bool foundSubdivision = true;
+                            vector<int> setA = {u1, u2, u3};
+                            vector<int> setB = {v1, v2, v3};
+
+                            for (int i = 0; i < 3; i++) {
+                                for (int j = 0; j < 3; j++) {
+                                    vector<int> forbidden;
+                                    for (int k = 0; k < 3; k++) {
+                                        if (k != i) forbidden.push_back(setA[k]);
+                                        if (k != j) forbidden.push_back(setB[k]);
+                                    }
+
+                                    auto paths = findPaths(setA[i], setB[j], forbidden);
+                                    if (paths.empty()) {
+                                        foundSubdivision = false;
+                                        break;
+                                    }
+
+                                    // Add the path to the subgraph
+                                    for (int k = 0; k < paths[0].size() - 1; k++) {
+                                        subgraph.addEdge(paths[0][k], paths[0][k + 1]);
+                                    }
+                                }
+                                if (!foundSubdivision) break;
+                            }
+
+                            if (foundSubdivision) return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+vector<vector<int>> BoyerMyrvold::findPaths(int start, int end, vector<int>& forbidden) {
+    // BFS to find paths from start to end that avoid forbidden vertices
+    vector<vector<int>> result;
+    vector<bool> visited(g.V, false);
+
+    for (int v : forbidden) {
+        visited[v] = true;  // Mark forbidden vertices as visited
+    }
+
+    queue<vector<int>> q;
+    q.push({start});
+    visited[start] = true;
+
+    while (!q.empty() && result.size() < 3) { // Find up to 3 paths
+        vector<int> path = q.front();
+        q.pop();
+
+        int current = path.back();
+
+        if (current == end) {
+            result.push_back(path);
+            continue;
+        }
+
+        for (int next : g.adj[current]) {
+            if (!visited[next]) {
+                visited[next] = true;
+                vector<int> newPath = path;
+                newPath.push_back(next);
+                q.push(newPath);
+            }
+        }
+    }
+
+    return result;
+}
+
+bool BoyerMyrvold::isPathDisjoint(const vector<int>& path1, const vector<int>& path2) {
+    // Check if two paths are internally vertex-disjoint
+    for (int i = 1; i < path1.size() - 1; i++) {
+        for (int j = 1; j < path2.size() - 1; j++) {
+            if (path1[i] == path2[j]) return false;
+        }
+    }
+    return true;
 }
 
 bool BoyerMyrvold::isK5() {
@@ -59,6 +238,42 @@ bool BoyerMyrvold::isK5() {
     }
 
     return false;
+}
+
+// Add this method to BoyerMyrvold class
+void BoyerMyrvold::computeDFSOrder(const Graph& g, vector<int>& dfsOrder) {
+    int n = g.V;
+    vector<bool> visited(n, false);
+    dfsOrder.clear();
+
+    // Helper function for DFS
+    function<void(int)> dfs = [&](int u) {
+        visited[u] = true;
+
+        for (int v : g.adj[u]) {
+            if (!visited[v]) {
+                dfs(v);
+            }
+        }
+
+        // Add vertex in postorder (after visiting all descendants)
+        dfsOrder.push_back(u);
+    };
+
+    // Run DFS from each unvisited vertex
+    for (int i = 0; i < n; i++) {
+        if (!visited[i]) {
+            dfs(i);
+        }
+    }
+
+    // dfsOrder now contains vertices in reverse DFS order
+    // No need to reverse since we're adding in postorder
+}
+
+bool BoyerMyrvold::isPlanarComponent(const Graph& component) {
+    // Use the Left-Right planarity test for biconnected components
+    return leftRightPlanarityTest(component);
 }
 
 // Helper method to check if two vertices are connected
@@ -236,21 +451,17 @@ void BoyerMyrvold::dfsForBiconnected(int u, stack<pair<int, int>>& edgeStack) {
 }
 
 bool BoyerMyrvold::isPlanar() {
-    // Kuratowski's theorem: A graph is planar if and only if it does not contain
-    // a subgraph that is a subdivision of K5 or K3,3
     if (isK5() || hasK33Subgraph()) {
+        kuratowskiSubgraph = extractKuratowskiSubgraph();
         return false;
     }
 
-    // Edge count check
-    if (g.V >= 3 && edgeCount() > 3*g.V - 6) {
-        return false; // Too many edges for a planar graph
+    if (g.V >= 3 && edgeCount() > 3 * g.V - 6) {
+        return false;
     }
 
-    // Find biconnected components and check each one
     findBiconnectedComponents();
     for (const auto& component : biconnectedComponents) {
-        // Create a subgraph for the component
         set<int> vertices;
         for (int v : component) {
             vertices.insert(v);
@@ -264,7 +475,7 @@ bool BoyerMyrvold::isPlanar() {
         }
 
         for (size_t i = 0; i < component.size(); i += 2) {
-            subgraph.addEdge(oldToNew[component[i]], oldToNew[component[i+1]]);
+            subgraph.addEdge(oldToNew[component[i]], oldToNew[component[i + 1]]);
         }
 
         if (!isPlanarComponent(subgraph)) {
@@ -275,10 +486,417 @@ bool BoyerMyrvold::isPlanar() {
     return true;
 }
 
-bool BoyerMyrvold::isPlanarComponent(const Graph& component) {
-    return tryPlanarEmbedding(component);
+bool BoyerMyrvold::tryPlanarEmbedding(const Graph& component) {
+    int n = component.V;
+    vector<vector<int>> localEmbedding(n);
+    vector<int> dfsNum(n, -1);
+    vector<int> dfsParent(n, -1);
+    vector<int> lowPoint(n, -1);
+    vector<bool> visited(n, false);
+    vector<vector<int>> nesting(n);
+    vector<vector<int>> separated(n);
+
+    dfsCounter = 0;
+    computeDfsAndLowpoints(0, dfsNum, dfsParent, lowPoint, visited, localEmbedding, component);
+
+    vector<int> reverseDfs;
+    for (int i = 0; i < n; i++) {
+        if (dfsNum[i] != -1) {
+            reverseDfs.push_back(i);
+        }
+    }
+    sort(reverseDfs.begin(), reverseDfs.end(), [&](int a, int b) {
+        return dfsNum[a] > dfsNum[b];
+    });
+
+    for (int v : reverseDfs) {
+        if (v == 0) continue;
+
+        int parent = dfsParent[v];
+
+        for (int w : component.adj[v]) {
+            if (dfsParent[w] != v && dfsNum[w] < dfsNum[v]) {
+                bool canEmbed = true;
+                for (int sep : separated[v]) {
+                    if (dfsNum[sep] <= dfsNum[w] && dfsNum[w] < dfsNum[v]) {
+                        canEmbed = false;
+                        break;
+                    }
+                }
+
+                if (!canEmbed) {
+                    return false;
+                }
+
+                localEmbedding[v].push_back(w);
+                localEmbedding[w].push_back(v);
+
+                nesting[parent].push_back(w);
+            }
+        }
+
+        for (int nest : nesting[v]) {
+            separated[parent].push_back(nest);
+        }
+    }
+
+    embedding = localEmbedding; // Store the embedding
+    return true;
 }
 
+vector<vector<int>> BoyerMyrvold::getPlanarEmbedding() {
+    return embedding;
+}
+
+bool BoyerMyrvold::leftRightPlanarityTest(const Graph& component) {
+    int n = component.V;
+
+    // Skip trivially planar graphs
+    if (n <= 4) return true;
+
+    // Euler's formula check: |E| ≤ 3|V| - 6 for planar graphs
+    int edges = 0;
+    for (int i = 0; i < n; i++) {
+        edges += component.adj[i].size();
+    }
+    edges /= 2; // Each edge is counted twice
+
+    if (edges > 3 * n - 6) return false;
+
+    // Initialize data structures
+    vector<int> dfsNum(n, -1);
+    vector<int> dfsParent(n, -1);
+    vector<int> lowpoint1(n, -1);
+    vector<int> lowpoint2(n, -1);
+    vector<bool> visited(n, false);
+
+    // Edge classifications
+    vector<vector<int>> childList(n);
+    vector<vector<int>> backEdgeList(n);
+
+    // Edge orientation (left or right)
+    vector<vector<char>> edgeOrientation(n, vector<char>(n, '?'));
+
+    // Pertinent roots for each vertex
+    vector<vector<int>> pertinentRoots(n);
+
+    // Generate DFS ordering with lowpoints
+    int dfsCounter = 0;
+    for (int i = 0; i < n; i++) {
+        if (!visited[i]) {
+            computeDfsWithLowpoints(component, i, -1, dfsCounter, dfsNum, dfsParent, lowpoint1, lowpoint2,
+                visited, childList, backEdgeList);
+        }
+    }
+
+    // Process vertices in reverse DFS order
+    vector<int> dfsVertices(n);
+    for (int i = 0; i < n; i++) {
+        if (dfsNum[i] != -1) {
+            dfsVertices[dfsNum[i]] = i;
+        }
+    }
+
+    for (int i = n-1; i >= 0; i--) {
+        if (i >= dfsVertices.size()) continue;
+        int v = dfsVertices[i];
+
+        // Process back edges from v
+        for (int target : backEdgeList[v]) {
+            if (!processBackEdge(v, target, dfsNum, dfsParent, lowpoint1, edgeOrientation, pertinentRoots)) {
+                return false;
+            }
+        }
+
+        // Merge child components
+        for (int child : childList[v]) {
+            if (!mergeChildComponents(v, child, dfsNum, lowpoint1, edgeOrientation, pertinentRoots)) {
+                return false;
+            }
+        }
+    }
+
+    // Build the planar embedding based on edge orientations
+    embedding.resize(n);
+    for (int i = 0; i < n; i++) {
+        embedding[i].clear();
+        for (int j : component.adj[i]) {
+            embedding[i].push_back(j);
+        }
+
+        // Sort adjacency lists based on edge orientation
+        // This creates a clockwise or counterclockwise arrangement
+        if (!embedding[i].empty()) {
+            sort(embedding[i].begin(), embedding[i].end(), [&](int a, int b) {
+                if (edgeOrientation[i][a] != edgeOrientation[i][b]) {
+                    return edgeOrientation[i][a] < edgeOrientation[i][b];
+                }
+                return a < b;
+            });
+        }
+    }
+
+    return true;
+}
+
+void BoyerMyrvold::computeDfsWithLowpoints(
+    const Graph& g, int u, int parent, int& counter,
+    vector<int>& dfsNum, vector<int>& dfsParent,
+    vector<int>& lowpoint1, vector<int>& lowpoint2,
+    vector<bool>& visited,
+    vector<vector<int>>& childList,
+    vector<vector<int>>& backEdgeList) {
+
+    visited[u] = true;
+    dfsNum[u] = counter++;
+    dfsParent[u] = parent;
+    lowpoint1[u] = dfsNum[u];
+    lowpoint2[u] = dfsNum[u];
+
+    for (int v : g.adj[u]) {
+        if (!visited[v]) {
+            // Tree edge
+            childList[u].push_back(v);
+
+            computeDfsWithLowpoints(g, v, u, counter, dfsNum, dfsParent, lowpoint1, lowpoint2,
+                                 visited, childList, backEdgeList);
+
+            // Update lowpoints
+            if (lowpoint1[v] < lowpoint1[u]) {
+                lowpoint2[u] = min(lowpoint1[u], lowpoint2[v]);
+                lowpoint1[u] = lowpoint1[v];
+            } else if (lowpoint1[v] == lowpoint1[u]) {
+                lowpoint2[u] = min(lowpoint2[u], lowpoint2[v]);
+            } else {
+                lowpoint2[u] = min(lowpoint2[u], lowpoint1[v]);
+            }
+        }
+        else if (v != parent && dfsNum[v] < dfsNum[u]) {
+            // Back edge
+            backEdgeList[u].push_back(v);
+
+            if (dfsNum[v] < lowpoint1[u]) {
+                lowpoint2[u] = lowpoint1[u];
+                lowpoint1[u] = dfsNum[v];
+            } else if (dfsNum[v] != lowpoint1[u]) {
+                lowpoint2[u] = min(lowpoint2[u], dfsNum[v]);
+            }
+        }
+    }
+}
+
+bool BoyerMyrvold::processBackEdge(int v, int target, const vector<int>& dfsNum,
+                                const vector<int>& dfsParent, const vector<int>& lowpoint1,
+                                vector<vector<char>>& edgeOrientation,
+                                vector<vector<int>>& pertinentRoots) {
+    // Find lowest common ancestor (LCA)
+    int lca = target;
+    while (dfsNum[lca] > dfsNum[v]) {
+        lca = dfsParent[lca];
+    }
+
+    // Add constraints for the path from v to LCA
+    int current = v;
+    while (current != lca) {
+        int parent = dfsParent[current];
+
+        // Check if we can place this edge
+        if (edgeOrientation[parent][current] == 'R') {
+            return false; // Conflict with existing constraint
+        }
+
+        // Mark this edge with the left orientation
+        edgeOrientation[parent][current] = 'L';
+        edgeOrientation[current][parent] = 'L'; // Symmetric
+
+        // Move up the tree
+        current = parent;
+    }
+
+    // Add constraints for the path from target to LCA
+    current = target;
+    while (current != lca) {
+        int parent = dfsParent[current];
+
+        // Check if we can place this edge
+        if (edgeOrientation[parent][current] == 'L') {
+            return false; // Conflict with existing constraint
+        }
+
+        // Mark this edge with the right orientation
+        edgeOrientation[parent][current] = 'R';
+        edgeOrientation[current][parent] = 'R'; // Symmetric
+
+        // Move up the tree
+        current = parent;
+    }
+
+    // Add target to pertinent roots for v
+    pertinentRoots[v].push_back(target);
+
+    return true;
+}
+
+bool BoyerMyrvold::mergeChildComponents(int v, int child, const vector<int>& dfsNum,
+                                     const vector<int>& lowpoint1,
+                                     vector<vector<char>>& edgeOrientation,
+                                     vector<vector<int>>& pertinentRoots) {
+    // Check for conflicts in child component orientation
+    if (lowpoint1[child] < dfsNum[v]) {
+        // This child has edges that go above v in the DFS tree
+
+        // If the edge orientation is already set, verify it's consistent
+        if (edgeOrientation[v][child] != '?') {
+            // For consistency with lowpoint constraints, the edge must be 'L'
+            if (edgeOrientation[v][child] != 'L') {
+                return false; // Conflict that can't be resolved
+            }
+        } else {
+            // Set the orientation based on lowpoint requirements
+            edgeOrientation[v][child] = 'L';
+            edgeOrientation[child][v] = 'L'; // Symmetric
+        }
+    } else {
+        // The child component doesn't have edges going above v
+        if (edgeOrientation[v][child] == '?') {
+            // We can choose any orientation
+            edgeOrientation[v][child] = 'R';
+            edgeOrientation[child][v] = 'R';
+        }
+    }
+
+    // Merge pertinent roots from child
+    for (int root : pertinentRoots[child]) {
+        pertinentRoots[v].push_back(root);
+    }
+
+    return true;
+}
+
+bool BoyerMyrvold::addVertexToEmbedding(const Graph& g, int v) {
+    // Get neighbors of v that are already in the embedding (back-edges)
+   vector<int> embeddedNeighbors;
+    for (int u : g.adj[v]) {
+        if (inEmbedding[u]) {
+            embeddedNeighbors.push_back(u);
+        }
+    }
+
+    // If no embedded neighbors, just add v to the embedding
+    if (embeddedNeighbors.empty()) {
+        inEmbedding[v] = true;
+        return true;
+    }
+
+    // Initialize data structures for walkup and walkdown
+    map<int, int> lowpointMap;  // Maps vertex to its lowpoint
+    set<int> pertinentRoots;    // Roots of pertinent biconnected components
+    set<int> externallyActive;  // Externally active vertices
+
+    // For each embedded neighbor, perform walkup
+    for (int neighbor : embeddedNeighbors) {
+        performWalkup(v, neighbor, lowpointMap, pertinentRoots, externallyActive);
+    }
+
+    // Track edges that need to be embedded
+    set<pair<int, int>> remainingEdges;
+    for (int neighbor : embeddedNeighbors) {
+        remainingEdges.insert({v, neighbor});
+    }
+
+    // For each pertinent root, perform walkdown
+    for (int root : pertinentRoots) {
+        if (!performWalkdown(v, root, remainingEdges, externallyActive)) {
+            return false; // Not planar
+        }
+    }
+
+    // Mark v as now in the embedding
+    inEmbedding[v] = true;
+
+    // All edges were successfully embedded if remainingEdges is empty
+    return remainingEdges.empty();
+}
+
+void BoyerMyrvold::performWalkup(int v, int w, map<int, int>& lowpointMap, set<int>& pertinentRoots, set<int>& externallyActive) {
+    int currentVertex = w;
+
+    // Walk up the DFS tree from w until we find a pertinent root
+    while (true) {
+        // Get parent of current vertex
+        int parentVertex = parent[currentVertex];
+        if (parentVertex == -1) break; // Reached root of DFS tree
+
+        // Update lowpoint of current vertex
+        if (lowpointMap.find(currentVertex) == lowpointMap.end() ||
+            lowpointMap[currentVertex] > dfsNum[w]) {
+            lowpointMap[currentVertex] = dfsNum[w];
+        }
+
+        // Check if current vertex is externally active for v
+        if (lowpointMap[currentVertex] < dfsNum[v]) {
+            // Mark as externally active
+            externallyActive.insert(currentVertex);
+            // Continue walking up
+            currentVertex = parentVertex;
+        } else {
+            // Current vertex is a pertinent root
+            pertinentRoots.insert(currentVertex);
+            break;
+        }
+    }
+}
+
+bool BoyerMyrvold::performWalkdown(int v, int root, set<pair<int, int>>& remainingEdges, const set<int>& externallyActive) {
+    // Find the external face of the current embedding at the root
+    vector<int> externalFace = findExternalFace(root);
+
+    // Try to embed all remaining edges within the external face
+    for (auto it = remainingEdges.begin(); it != remainingEdges.end();) {
+        int neighbor = it->second;
+
+        // Check if neighbor is on the external face
+        if (find(externalFace.begin(), externalFace.end(), neighbor) != externalFace.end()) {
+            // Can embed this edge
+            embedding[v].push_back(neighbor);
+            embedding[neighbor].push_back(v);
+            it = remainingEdges.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // If there are still edges to embed, the graph is not planar
+    return remainingEdges.empty();
+}
+
+vector<int> BoyerMyrvold::findExternalFace(int root) {
+    vector<int> face;
+    set<int> visited;
+
+    // Start with root
+    face.push_back(root);
+    visited.insert(root);
+
+    // Simple face traversal (clockwise or counterclockwise)
+    int current = root;
+    while (true) {
+        bool found = false;
+        for (int neighbor : embedding[current]) {
+            if (visited.find(neighbor) == visited.end()) {
+                visited.insert(neighbor);
+                face.push_back(neighbor);
+                current = neighbor;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found || current == root) break;
+    }
+
+    return face;
+}
 
 void BoyerMyrvold::computeDfsAndLowpoints(int v, vector<int>& dfsNum, vector<int>& dfsParent,
     vector<int>& lowPoint, vector<bool>& visited, vector<vector<int>>& embedding,
@@ -301,73 +919,6 @@ void BoyerMyrvold::computeDfsAndLowpoints(int v, vector<int>& dfsNum, vector<int
             lowPoint[v] = min(lowPoint[v], dfsNum[w]);
         }
     }
-}
-
-bool BoyerMyrvold::tryPlanarEmbedding(const Graph& component) {
-    int n = component.V;
-    vector<vector<int>> embedding(n);
-    vector<int> dfsNum(n, -1);
-    vector<int> dfsParent(n, -1);
-    vector<int> lowPoint(n, -1);
-    vector<bool> visited(n, false);
-    vector<vector<int>> nesting(n);
-    vector<vector<int>> separated(n);
-
-    // Step 1: Perform DFS and compute lowpoints
-    dfsCounter = 0;
-    computeDfsAndLowpoints(0, dfsNum, dfsParent, lowPoint, visited, embedding, component);
-
-    // Step 2: Process vertices in reverse DFS order
-    vector<int> reverseDfs;
-    for (int i = 0; i < n; i++) {
-        if (dfsNum[i] != -1) {
-            reverseDfs.push_back(i);
-        }
-    }
-    sort(reverseDfs.begin(), reverseDfs.end(), [&](int a, int b) {
-        return dfsNum[a] > dfsNum[b];
-    });
-
-    // Step 3: Perform embedding and planarity testing
-    for (int v : reverseDfs) {
-        if (v == 0) continue; // Skip the root
-
-        int parent = dfsParent[v];
-
-        // Check each back edge from v
-        for (int w : component.adj[v]) {
-            if (dfsParent[w] != v && dfsNum[w] < dfsNum[v]) {
-                // w is an ancestor of v, this is a back edge
-
-                // Check if this back edge can be embedded without crossing
-                bool canEmbed = true;
-                for (int sep : separated[v]) {
-                    if (dfsNum[sep] <= dfsNum[w] && dfsNum[w] < dfsNum[v]) {
-                        canEmbed = false;
-                        break;
-                    }
-                }
-
-                if (!canEmbed) {
-                    return false; // Graph is not planar
-                }
-
-                // Add the back edge to the embedding
-                embedding[v].push_back(w);
-                embedding[w].push_back(v);
-
-                // Update nesting information
-                nesting[parent].push_back(w);
-            }
-        }
-
-        // Merge separated paths
-        for (int nest : nesting[v]) {
-            separated[parent].push_back(nest);
-        }
-    }
-
-    return true; // Graph is planar
 }
 
 void BoyerMyrvold::dfs(const Graph& component, int u, vector<bool>& visited,

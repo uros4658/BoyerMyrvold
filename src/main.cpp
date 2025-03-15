@@ -22,14 +22,19 @@ void testPlanarity(const string& graphName, Graph& g) {
 
     cout << "Is planar: " << (isPlanar ? "Yes" : "No") << endl;
 
-    if (!isPlanar) {
+    if (isPlanar) {
+        auto embedding = bm.getPlanarEmbedding();
+        cout << "Planar embedding:" << endl;
+        for (int i = 0; i < embedding.size(); i++) {
+            cout << i << ": ";
+            for (int j : embedding[i]) {
+                cout << j << " ";
+            }
+            cout << endl;
+        }
+    } else {
         cout << "Contains K5 subgraph: " << (bm.isK5() ? "Yes" : "No") << endl;
         cout << "Contains K3,3 subgraph: " << (bm.hasK33Subgraph() ? "Yes" : "No") << endl;
-    } else {
-        cout << "Finding biconnected components..." << endl;
-        BiconnectedComponents bc(g);
-        bc.findComponents();
-        cout << "Number of biconnected components: " << bc.components.size() << endl;
     }
 
     cout << "-----------------------------------" << endl;
@@ -47,7 +52,6 @@ Graph createK5() {
 
 Graph createK33() {
     Graph g(6);
-    // Connect each vertex from first part (0,1,2) to each vertex in second part (3,4,5)
     for (int i = 0; i < 3; i++) {
         for (int j = 3; j < 6; j++) {
             g.addEdge(i, j);
@@ -58,7 +62,6 @@ Graph createK33() {
 
 Graph createPlanarGraph() {
     Graph g(8);
-    // Create a cube graph (which is planar)
     g.addEdge(0, 1);
     g.addEdge(1, 2);
     g.addEdge(2, 3);
@@ -75,15 +78,12 @@ Graph createPlanarGraph() {
 }
 
 int main() {
-    // Test with K5 (non-planar)
     Graph k5 = createK5();
     testPlanarity("K5 (Complete graph with 5 vertices)", k5);
 
-    // Test with K3,3 (non-planar)
     Graph k33 = createK33();
     testPlanarity("K3,3 (Complete bipartite graph)", k33);
 
-    // Test with a planar graph
     Graph planar = createPlanarGraph();
     testPlanarity("Cube graph (Planar)", planar);
 
@@ -91,27 +91,31 @@ int main() {
 }
 
 // TODO:
-// 1. Implement the full Boyer-Myrvold algorithm with:
-//    - Proper embedding construction that returns the actual planar embedding
-//    - Kuratowski subgraph extraction for non-planar graphs (K5 or K3,3 subdivision)
-//    - DFS-based vertex addition in the correct order
-//    - Left-Right planarity test approach for biconnected components
-//    - Walkup and Walkdown procedures for efficient path finding
+// 1. Complete the Boyer-Myrvold implementation:
+//    - Refactor the initialization of data structures in the constructor
+//    - Fix the addVertexToEmbedding, performWalkup, and performWalkdown methods
+//    - Implement proper verification that the embedding is actually planar
 //
 // 2. Improve the current implementation:
 //    - Replace geometric edge intersection with topological embedding
-//    - Remove dependency on vertex coordinates which aren't part of the algorithm
+//    - Remove dependency on vertexCoordinates which aren't part of the algorithm
 //    - Implement proper face tracking during embedding
+//    - Add embedding verification based on Euler's formula (F-E+V=2)
+//    - Fix biconnected components extraction for disconnected graphs
 //
 // 3. Add visualization features:
-//    - Output the planar embedding in a visual format
+//    - Output the planar embedding in a visual format (GraphML, DOT, or JSON)
 //    - Visualize the Kuratowski subgraph when non-planar
+//    - Add circular layout drawing based on the computed embedding
 //
 // 4. Add test cases:
 //    - More complex planar and non-planar graphs
 //    - Performance testing with large graphs
 //    - Edge cases like disconnected graphs
+//    - Verify embedding correctness after construction
 //
 // 5. Optimization:
 //    - Ensure linear-time complexity O(n) as per the original algorithm
 //    - Memory optimization for large graphs
+//    - Cache intermediate results for biconnected components
+//    - Improve Kuratowski subgraph extraction algorithm
