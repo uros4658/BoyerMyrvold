@@ -104,8 +104,5 @@ int main() {
 //    - Fix biconnected components extraction for disconnected graphs
 //
 // 3. Add test cases:
-//    - More complex planar and non-planar graphs
-//    - Performance testing with large graphs
-//    - Edge cases like disconnected graphs
-//    - Verify embedding correctness after construction
+//    - Implement g6 format parser for graph input
 //
