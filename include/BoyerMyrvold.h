@@ -18,16 +18,15 @@ public:
 
     bool leftRightPlanarityTest(const Graph &component);
 
-    bool isK5(); // Add this line
+    bool isK5();
     void computeDFSOrder(const Graph &g, std::vector<int> &dfsOrder);
 
     bool verifyPlanarEmbedding();
 
-    bool hasK33Subgraph(); // Add this line
-    int edgeCount(); // Add this line
-    void findBiconnectedComponents(); // Add this line
+    bool hasK33Subgraph();
+    int edgeCount();
+    void findBiconnectedComponents();
     Graph extractKuratowskiSubgraph();
-
 
 private:
     Graph& g;
@@ -46,11 +45,16 @@ private:
     std::vector<std::vector<int>> findPaths(int start, int end, std::vector<int>& forbidden);
     bool isPathDisjoint(const std::vector<int>& path1, const std::vector<int>& path2);
     Graph kuratowskiSubgraph;
-    std::vector<bool> inEmbedding;  // Tracks vertices already in embedding
+    std::vector<bool> inEmbedding;
 
-    void performWalkup(int v, int w, std::map<int, int>& lowpointMap,std::set<int>& pertinentRoots, std::set<int>& externallyActive);
+    void performWalkup(int v, int w, std::map<int, int>& lowpointMap, std::set<int>& pertinentRoots, std::set<int>& externallyActive);
     bool performWalkdown(int v, int root, std::set<std::pair<int, int>>& remainingEdges, const std::set<int>& externallyActive);
     std::vector<int> findExternalFace(int root);
+
+    void computeDfsAndLowpoints(int v, std::vector<int> &dfsNum, std::vector<int> &dfsParent,
+                                std::vector<int> &lowPoint,
+                                std::vector<bool> &visited, std::vector<std::vector<int>> &embedding,
+                                const Graph &component);
 
     void computeDfsWithLowpoints(const Graph &g, int u, int parent, int &counter, std::vector<int> &dfsNum,
                                  std::vector<int> &dfsParent, std::vector<int> &lowpoint1, std::vector<int> &lowpoint2,
@@ -68,6 +72,9 @@ private:
     bool addVertexToEmbedding(const Graph & graph, int i);
 
     bool isPlanarComponent(const Graph& component);
+
+    bool areConnected(int u, int v);
+
     bool tryPlanarEmbedding(const Graph& component);
     void dfs(const Graph& component, int u, std::vector<bool>& visited, std::vector<int>& dfsOrder, std::vector<int>& parent);
     void addEdgeToEmbedding(std::vector<std::vector<int>>& embedding, int u, int v);
@@ -79,15 +86,6 @@ private:
     void dfsForBiconnected(int u, std::stack<std::pair<int, int>>& edgeStack);
     bool checkForK33Structure(const Graph& subgraph);
 
-    bool performWalkdown(int v, int root, std::set<std::pair<int, int>> &remainingEdges,
-                         const std::set<int> &externallyActive);
-
-    std::vector<int> findExternalFace(int root);
-
-    void computeDfsAndLowpoints(int v, std::vector<int>& dfsNum, std::vector<int>& dfsParent,
-                                std::vector<int>& lowPoint, std::vector<bool>& visited, std::vector<std::vector<int>>& embedding,
-                                const Graph& component);
-    bool areConnected(int u, int v);
     std::map<int, std::pair<int, int>> vertexCoordinates;
 };
 
