@@ -90,12 +90,12 @@ int main() {
     return 0;
 }
 
-// TODO:
-// 1. Complete the Boyer-Myrvold implementation:
-//    - Refactor the initialization of data structures in the constructor
-//    - Fix the addVertexToEmbedding, performWalkup, and performWalkdown methods
-//    - Implement proper verification that the embedding is actually planar
-//
+// TODO
+// 1. Optimization:
+//    - Ensure linear-time complexity O(n) as per the original algorithm
+//    - Memory optimization for large graphs
+//    - Cache intermediate results for biconnected components
+//    - Improve Kuratowski subgraph extraction algorithm
 // 2. Improve the current implementation:
 //    - Replace geometric edge intersection with topological embedding
 //    - Remove dependency on vertexCoordinates which aren't part of the algorithm
@@ -103,19 +103,9 @@ int main() {
 //    - Add embedding verification based on Euler's formula (F-E+V=2)
 //    - Fix biconnected components extraction for disconnected graphs
 //
-// 3. Add visualization features:
-//    - Output the planar embedding in a visual format (GraphML, DOT, or JSON)
-//    - Visualize the Kuratowski subgraph when non-planar
-//    - Add circular layout drawing based on the computed embedding
-//
-// 4. Add test cases:
+// 3. Add test cases:
 //    - More complex planar and non-planar graphs
 //    - Performance testing with large graphs
 //    - Edge cases like disconnected graphs
 //    - Verify embedding correctness after construction
 //
-// 5. Optimization:
-//    - Ensure linear-time complexity O(n) as per the original algorithm
-//    - Memory optimization for large graphs
-//    - Cache intermediate results for biconnected components
-//    - Improve Kuratowski subgraph extraction algorithm

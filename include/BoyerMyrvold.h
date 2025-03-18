@@ -21,6 +21,8 @@ public:
     bool isK5(); // Add this line
     void computeDFSOrder(const Graph &g, std::vector<int> &dfsOrder);
 
+    bool verifyPlanarEmbedding();
+
     bool hasK33Subgraph(); // Add this line
     int edgeCount(); // Add this line
     void findBiconnectedComponents(); // Add this line
@@ -35,8 +37,8 @@ private:
     std::vector<int> parent;
     std::vector<std::vector<int>> biconnectedComponents;
     std::stack<std::pair<int, int>> edgeStack;
-    int dfsCounter;
-    int time;
+    int dfsCounter{};
+    int time{};
     std::vector<std::vector<int>> embedding;
 
     bool findK5Subdivision(Graph& subgraph);

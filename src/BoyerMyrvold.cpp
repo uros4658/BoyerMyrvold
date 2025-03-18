@@ -10,22 +10,17 @@ using namespace std;
 
 
 BoyerMyrvold::BoyerMyrvold(Graph& graph) : g(graph), kuratowskiSubgraph(0) {
+    initializeDataStructures();
+}
+
+void BoyerMyrvold::initializeDataStructures() {
     visited.resize(g.V, false);
     dfsNum.resize(g.V, 0);
     dfsLow.resize(g.V, 0);
     parent.resize(g.V, -1);
     time = 0;
     embedding.resize(g.V); // Initialize embedding
-    initializeDataStructures(); // Add this line
-}
-
-void BoyerMyrvold::initializeDataStructures() {
-    // Initialize vertex sets
-    int n = g.V;
-    inEmbedding.resize(n, false);
-
-    // The Boyer-Myrvold algorithm doesn't need geometric coordinates
-    // So we can remove the dependency on vertexCoordinates
+    inEmbedding.resize(g.V, false);
 }
 
 Graph BoyerMyrvold::extractKuratowskiSubgraph() {
@@ -271,9 +266,23 @@ void BoyerMyrvold::computeDFSOrder(const Graph& g, vector<int>& dfsOrder) {
     // No need to reverse since we're adding in postorder
 }
 
+bool BoyerMyrvold::verifyPlanarEmbedding() {
+    int V = g.V;
+    int E = edgeCount();
+    auto faces = findFaces(embedding);
+    int F = faces.size();
+
+    // Euler's formula: V - E + F should be 2 for a connected planar graph
+    return (V - E + F == 2);
+}
+
+
 bool BoyerMyrvold::isPlanarComponent(const Graph& component) {
-    // Use the Left-Right planarity test for biconnected components
-    return leftRightPlanarityTest(component);
+    if (!leftRightPlanarityTest(component)) {
+        return false;
+    }
+
+    return verifyPlanarEmbedding();
 }
 
 // Helper method to check if two vertices are connected
@@ -774,73 +783,55 @@ bool BoyerMyrvold::mergeChildComponents(int v, int child, const vector<int>& dfs
 }
 
 bool BoyerMyrvold::addVertexToEmbedding(const Graph& g, int v) {
-    // Get neighbors of v that are already in the embedding (back-edges)
-   vector<int> embeddedNeighbors;
+    vector<int> embeddedNeighbors;
     for (int u : g.adj[v]) {
         if (inEmbedding[u]) {
             embeddedNeighbors.push_back(u);
         }
     }
 
-    // If no embedded neighbors, just add v to the embedding
     if (embeddedNeighbors.empty()) {
         inEmbedding[v] = true;
         return true;
     }
 
-    // Initialize data structures for walkup and walkdown
-    map<int, int> lowpointMap;  // Maps vertex to its lowpoint
-    set<int> pertinentRoots;    // Roots of pertinent biconnected components
-    set<int> externallyActive;  // Externally active vertices
+    map<int, int> lowpointMap;
+    set<int> pertinentRoots;
+    set<int> externallyActive;
 
-    // For each embedded neighbor, perform walkup
     for (int neighbor : embeddedNeighbors) {
         performWalkup(v, neighbor, lowpointMap, pertinentRoots, externallyActive);
     }
 
-    // Track edges that need to be embedded
     set<pair<int, int>> remainingEdges;
     for (int neighbor : embeddedNeighbors) {
         remainingEdges.insert({v, neighbor});
     }
 
-    // For each pertinent root, perform walkdown
     for (int root : pertinentRoots) {
         if (!performWalkdown(v, root, remainingEdges, externallyActive)) {
-            return false; // Not planar
+            return false;
         }
     }
 
-    // Mark v as now in the embedding
     inEmbedding[v] = true;
-
-    // All edges were successfully embedded if remainingEdges is empty
     return remainingEdges.empty();
 }
 
 void BoyerMyrvold::performWalkup(int v, int w, map<int, int>& lowpointMap, set<int>& pertinentRoots, set<int>& externallyActive) {
     int currentVertex = w;
-
-    // Walk up the DFS tree from w until we find a pertinent root
     while (true) {
-        // Get parent of current vertex
         int parentVertex = parent[currentVertex];
-        if (parentVertex == -1) break; // Reached root of DFS tree
+        if (parentVertex == -1) break;
 
-        // Update lowpoint of current vertex
-        if (lowpointMap.find(currentVertex) == lowpointMap.end() ||
-            lowpointMap[currentVertex] > dfsNum[w]) {
+        if (lowpointMap.find(currentVertex) == lowpointMap.end() || lowpointMap[currentVertex] > dfsNum[w]) {
             lowpointMap[currentVertex] = dfsNum[w];
         }
 
-        // Check if current vertex is externally active for v
         if (lowpointMap[currentVertex] < dfsNum[v]) {
-            // Mark as externally active
             externallyActive.insert(currentVertex);
-            // Continue walking up
             currentVertex = parentVertex;
         } else {
-            // Current vertex is a pertinent root
             pertinentRoots.insert(currentVertex);
             break;
         }
@@ -848,16 +839,11 @@ void BoyerMyrvold::performWalkup(int v, int w, map<int, int>& lowpointMap, set<i
 }
 
 bool BoyerMyrvold::performWalkdown(int v, int root, set<pair<int, int>>& remainingEdges, const set<int>& externallyActive) {
-    // Find the external face of the current embedding at the root
     vector<int> externalFace = findExternalFace(root);
 
-    // Try to embed all remaining edges within the external face
     for (auto it = remainingEdges.begin(); it != remainingEdges.end();) {
         int neighbor = it->second;
-
-        // Check if neighbor is on the external face
         if (find(externalFace.begin(), externalFace.end(), neighbor) != externalFace.end()) {
-            // Can embed this edge
             embedding[v].push_back(neighbor);
             embedding[neighbor].push_back(v);
             it = remainingEdges.erase(it);
@@ -866,10 +852,8 @@ bool BoyerMyrvold::performWalkdown(int v, int root, set<pair<int, int>>& remaini
         }
     }
 
-    // If there are still edges to embed, the graph is not planar
     return remainingEdges.empty();
 }
-
 vector<int> BoyerMyrvold::findExternalFace(int root) {
     vector<int> face;
     set<int> visited;
