@@ -53,72 +53,84 @@ public:
     face_vertex_iterator(int vertex, const std::vector<face_handle_t>& faceHandles)
         : currentVertex(vertex), faceHandles(faceHandles) {}
 
-    face_vertex_iterator& operator++() {
-        if (currentVertex == -1) {
-            return *this; // Already at end
-        }
-
-        bool found = false;
-
-        if constexpr (Side == first_side) {
-            for (const auto& handle : faceHandles) {
-                if (handle.first_vertex == currentVertex) {
-                    currentVertex = handle.second_vertex;
-                    found = true;
-                    break;
-                }
-            }
-        }
-        else if constexpr (Side == second_side) {
-            for (const auto& handle : faceHandles) {
-                if (handle.second_vertex == currentVertex) {
-                    currentVertex = handle.first_vertex;
-                    found = true;
-                    break;
-                }
-            }
-        }
-        else { // both_sides
-            for (const auto& handle : faceHandles) {
-                if (handle.first_vertex == currentVertex) {
-                    currentVertex = handle.second_vertex;
-                    found = true;
-                    break;
-                }
-                else if (handle.second_vertex == currentVertex) {
-                    currentVertex = handle.first_vertex;
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        if (!found) {
-            currentVertex = -1; // End of iteration
-        }
-
-        return *this;
-    }
-
-    int operator*() const {
-        return currentVertex;
-    }
-
-    bool operator!=(const face_vertex_iterator& other) const {
-        return currentVertex != other.currentVertex;
-    }
-
-    face_vertex_iterator& operator=(const face_vertex_iterator& other) {
-        if (this != &other) {
-            currentVertex = other.currentVertex;
-        }
-        return *this;
-    }
+    face_vertex_iterator& operator++();
+    int operator*() const;
+    bool operator!=(const face_vertex_iterator& other) const;
+    face_vertex_iterator& operator=(const face_vertex_iterator& other);
 
     int currentVertex;
 
 private:
     const std::vector<face_handle_t>& faceHandles;
 };
+
+template<int Side>
+face_vertex_iterator<Side>& face_vertex_iterator<Side>::operator++() {
+    if (currentVertex == -1) {
+        return *this; // Already at end
+    }
+
+    bool found = false;
+
+    if constexpr (Side == first_side) {
+        // Look for a face handle where current vertex is the first vertex
+        for (size_t i = 0; i < faceHandles.size(); i++) {
+            if (faceHandles[i].first_vertex == currentVertex) {
+                currentVertex = faceHandles[i].second_vertex;
+                found = true;
+                break;
+            }
+        }
+    }
+    else if constexpr (Side == second_side) {
+        // Look for a face handle where current vertex is the second vertex
+        for (size_t i = 0; i < faceHandles.size(); i++) {
+            if (faceHandles[i].second_vertex == currentVertex) {
+                currentVertex = faceHandles[i].first_vertex;
+                found = true;
+                break;
+            }
+        }
+    }
+    else { // both_sides
+        // Look for a face handle where current vertex is either first or second vertex
+        for (size_t i = 0; i < faceHandles.size(); i++) {
+            if (faceHandles[i].first_vertex == currentVertex) {
+                currentVertex = faceHandles[i].second_vertex;
+                found = true;
+                break;
+            }
+            else if (faceHandles[i].second_vertex == currentVertex) {
+                currentVertex = faceHandles[i].first_vertex;
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (!found) {
+        currentVertex = -1; // End of iteration
+    }
+
+    return *this;
+}
+
+template<int Side>
+int face_vertex_iterator<Side>::operator*() const {
+    return currentVertex;
+}
+
+template<int Side>
+bool face_vertex_iterator<Side>::operator!=(const face_vertex_iterator& other) const {
+    return currentVertex != other.currentVertex;
+}
+
+template<int Side>
+face_vertex_iterator<Side>& face_vertex_iterator<Side>::operator=(const face_vertex_iterator& other) {
+    if (this != &other) {
+        currentVertex = other.currentVertex;
+    }
+    return *this;
+}
 
 #endif // FACEHANDLE_H
