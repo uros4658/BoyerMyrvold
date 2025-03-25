@@ -1,43 +1,123 @@
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <string>
+#include <filesystem>
 #include "../include/Graph.h"
-#include "../include/BiconnectedComponents.h"
 #include "../include/BoyerMyrvold.h"
-#include "../include/Embedding.h"
-#include "../include/FaceUnionFind.h"
+#include "../include/Policies.h"
+#include "../include/FaceHandle.h"
+
 using namespace std;
+namespace fs = filesystem;
+
+// Function to decode a g6 string into a graph
+Graph decodeG6(const string& g6str) {
+    if (g6str.empty()) {
+        return Graph(0);
+    }
+
+    // Parse number of vertices from the first character
+    int n = g6str[0] - 63;
+    Graph g(n);
+
+    // If there are no edges, return the empty graph
+    if (g6str.length() == 1) {
+        return g;
+    }
+
+    // Decode the edge information
+    int bitPos = 0;
+    for (int i = 1; i < g6str.length(); i++) {
+        int byte = g6str[i] - 63;
+
+        for (int j = 0; j < 6; j++) {
+            if ((byte & (1 << (5 - j))) != 0) {
+                int k = bitPos + j;
+                // Convert edge number to pair of vertices
+                int v = 0;
+                while (k >= v) {
+                    k -= v;
+                    v++;
+                }
+                int w = k;
+                g.addEdge(v, w);
+            }
+        }
+        bitPos += 6;
+    }
+
+    return g;
+}
 
 void testPlanarity(const string& graphName, Graph& g) {
-    cout << "Testing graph: " << graphName << endl;
-    cout << "Number of vertices: " << g.V << endl;
+    cout << "Testing planarity of " << graphName << "..." << endl;
+    cout << "Graph has " << g.V << " vertices" << endl;
 
-    int edgeCount = 0;
+    int edges = 0;
     for (int i = 0; i < g.V; i++) {
-        edgeCount += g.adj[i].size();
+        edges += g.adj[i].size();
     }
-    cout << "Number of edges: " << edgeCount / 2 << endl;
+    cout << "Graph has " << edges/2 << " edges" << endl;
 
     BoyerMyrvold bm(g);
-    bool isPlanar = bm.isPlanar();
 
-    cout << "Is planar: " << (isPlanar ? "Yes" : "No") << endl;
+    try {
+        bool isPlanar = bm.isPlanar();
 
-    if (isPlanar) {
-        auto embedding = bm.getPlanarEmbedding();
-        cout << "Planar embedding:" << endl;
-        for (int i = 0; i < embedding.size(); i++) {
-            cout << i << ": ";
-            for (int j : embedding[i]) {
-                cout << j << " ";
+        if (isPlanar) {
+            cout << "Graph is planar!" << endl;
+
+            // Find and print the external face for visualization
+            if (!g.adj.empty()) {
+                vector<int> externalFace = bm.findExternalFace(0);
+                cout << "External face vertices: ";
+                for (int v : externalFace) {
+                    cout << v << " ";
+                }
+                cout << endl;
             }
-            cout << endl;
+        } else {
+            cout << "Graph is NOT planar!" << endl;
         }
-    } else {
-        cout << "Contains K5 subgraph: " << (bm.isK5() ? "Yes" : "No") << endl;
-        cout << "Contains K3,3 subgraph: " << (bm.hasK33Subgraph() ? "Yes" : "No") << endl;
+    } catch (const exception& e) {
+        cout << "Error during planarity testing: " << e.what() << endl;
     }
 
-    cout << "-----------------------------------" << endl;
+    cout << "----------------------------------------" << endl;
+}
+
+void testG6File(const string& filepath) {
+    ifstream file(filepath);
+    if (!file.is_open()) {
+        cerr << "Failed to open file: " << filepath << endl;
+        return;
+    }
+
+    string line;
+    int count = 0;
+    while (getline(file, line)) {
+        if (!line.empty()) {
+            cout << "Graph #" << ++count << " from " << filepath << endl;
+            Graph g = decodeG6(line);
+            testPlanarity("Graph from G6", g);
+        }
+    }
+
+    file.close();
+}
+
+void testG6Directory(const string& dirPath) {
+    try {
+        for (const auto& entry : fs::directory_iterator(dirPath)) {
+            if (entry.path().extension() == ".g6") {
+                cout << "Testing file: " << entry.path().filename() << endl;
+                testG6File(entry.path().string());
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        cerr << "Filesystem error: " << e.what() << endl;
+    }
 }
 
 Graph createK5() {
@@ -78,6 +158,8 @@ Graph createPlanarGraph() {
 }
 
 int main() {
+    // Test predefined graphs
+    cout << "Testing predefined graphs:" << endl;
     Graph k5 = createK5();
     testPlanarity("K5 (Complete graph with 5 vertices)", k5);
 
@@ -87,22 +169,9 @@ int main() {
     Graph planar = createPlanarGraph();
     testPlanarity("Cube graph (Planar)", planar);
 
+    // Test graphs from g6 files in the testGraphs directory
+    cout << "\nTesting graphs from g6 files:" << endl;
+    testG6Directory("../testGraphs");
+
     return 0;
 }
-
-// TODO
-// 1. Optimization:
-//    - Ensure linear-time complexity O(n) as per the original algorithm
-//    - Memory optimization for large graphs
-//    - Cache intermediate results for biconnected components
-//    - Improve Kuratowski subgraph extraction algorithm
-// 2. Improve the current implementation:
-//    - Replace geometric edge intersection with topological embedding
-//    - Remove dependency on vertexCoordinates which aren't part of the algorithm
-//    - Implement proper face tracking during embedding
-//    - Add embedding verification based on Euler's formula (F-E+V=2)
-//    - Fix biconnected components extraction for disconnected graphs
-//
-// 3. Add test cases:
-//    - Implement g6 format parser for graph input
-//
