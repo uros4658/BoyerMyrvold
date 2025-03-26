@@ -133,7 +133,7 @@ void BoyerMyrvold::remove_vertex_from_separated_dfs_child_list(int vertex) {
 }
 
 void BoyerMyrvold::add_to_merge_points(int vertex, bool storeOldHandlesPolicy) {
-    mergeStack.push(make_tuple(vertex, storeOldHandlesPolicy, false));
+    mergeStack.push_back(make_tuple(vertex, storeOldHandlesPolicy, false));
 }
 
 vector<int> BoyerMyrvold::findExternalFace(int root) {
@@ -165,54 +165,79 @@ void BoyerMyrvold::performWalkup(int v) {
     typedef face_vertex_iterator<both_sides> walkup_iterator_t;
 
     for (int w : g.adj[v]) {
-        // Skip if w is an ancestor of v or if the edge is a tree edge
+        // Skip self-loops
+        if (w == v) {
+            // self_loops.push_back(make_pair(v, v));
+            continue;
+        }
+
+        // Skip if not a back edge or already embedded
         if (dfsNum[w] < dfsNum[v] || w == dfsParent[v])
             continue;
 
-        // Mark the backedge from w to v
+        // Record backedge
         backedges[w].push_back(make_pair(w, v));
         int timestamp = dfsNum[v];
         backedgeFlag[w] = timestamp;
 
-        // Create iterators for walking up
-        walkup_iterator_t walkupItr(w, faceHandles);
-        walkup_iterator_t walkupEnd(-1, faceHandles); // Use -1 as sentinel value
-        int leadVertex = w;
+        // Initialize walkup iterators
+        walkup_iterator_t walkup_itr(w, &faceHandles);
+        walkup_iterator_t walkup_end(-1, &faceHandles);
+        int lead_vertex = w;
 
         while (true) {
-            // Walk up until we hit a vertex already visited during this walkup
-            while (walkupItr.currentVertex != walkupEnd.currentVertex && visited[*walkupItr] != timestamp) {
-                leadVertex = *walkupItr;
-                visited[leadVertex] = timestamp;
-                ++walkupItr;
+            // Move to the root of the current bicomp or the first visited
+            // vertex on the bicomp by going up each side in parallel
+            while (walkup_itr != walkup_end &&
+                   walkup_itr.currentVertex != -1 &&
+                   visited[*walkup_itr] != timestamp) {
+                lead_vertex = *walkup_itr;
+                visited[lead_vertex] = timestamp;
+                ++walkup_itr;
             }
 
-            if (walkupItr.currentVertex == walkupEnd.currentVertex) {
-                // We've reached the end of the face
-                int dfsChild = canonicalDfsChild[leadVertex];
-                int parent = dfsParent[dfsChild];
+            // If we've found the root of a bicomp through a path we haven't
+            // seen before, update pertinent_roots with a handle to the
+            // current bicomp. Otherwise, we've just seen a path we've been
+            // up before, so break out of the main while loop.
+            if (walkup_itr == walkup_end || walkup_itr.currentVertex == -1) {
+                int dfs_child = canonicalDfsChild[lead_vertex];
+                if (dfs_child != -1) {
+                    int parent = dfsParent[dfs_child];
+                    if (parent != -1) {
+                        // Mark endpoints as visited
+                        int firstVertex = dfsChildHandles[dfs_child].firstVertex();
+                        int secondVertex = dfsChildHandles[dfs_child].secondVertex();
 
-                // Mark the endpoints of this face
-                visited[dfsChildHandles[dfsChild].firstVertex()] = timestamp;
-                visited[dfsChildHandles[dfsChild].secondVertex()] = timestamp;
+                        if (firstVertex >= 0 && firstVertex < visited.size())
+                            visited[firstVertex] = timestamp;
+                        if (secondVertex >= 0 && secondVertex < visited.size())
+                            visited[secondVertex] = timestamp;
 
-                // Add to pertinent roots based on lowpoint/least ancestor
-                if (lowPoint[dfsChild] < dfsNum[v] || leastAncestor[dfsChild] < dfsNum[v]) {
-                    pertinentRoots[parent].push_back(dfsChildHandles[dfsChild]);
-                } else {
-                    pertinentRoots[parent].push_front(dfsChildHandles[dfsChild]);
-                }
+                        // Add to pertinent roots based on priority
+                        if (lowPoint[dfs_child] < dfsNum[v] ||
+                            leastAncestor[dfs_child] < dfsNum[v]) {
+                            pertinentRoots[parent].push_back(dfsChildHandles[dfs_child]);
+                        } else {
+                            pertinentRoots[parent].push_front(dfsChildHandles[dfs_child]);
+                        }
 
-                if (parent != v && visited[parent] != timestamp) {
-                    // Destroy and reconstruct in place
-                    walkupItr.~walkup_iterator_t();
-                    new (&walkupItr) walkup_iterator_t(parent, faceHandles);
-                    leadVertex = parent;
+                        // Continue from parent if not visited and not v
+                        if (parent != v &&
+                            parent >= 0 && parent < visited.size() &&
+                            visited[parent] != timestamp) {
+                            walkup_itr = walkup_iterator_t(parent, &faceHandles);
+                            lead_vertex = parent;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
                 } else {
                     break;
                 }
             } else {
-                // We've found a vertex that was already visited
                 break;
             }
         }
@@ -220,29 +245,26 @@ void BoyerMyrvold::performWalkup(int v) {
 }
 
 bool BoyerMyrvold::performWalkdown(int v) {
-    int w;
+    int w; // the other endpoint of the edge we're embedding
 
     while (!pertinentRoots[v].empty()) {
         face_handle_t rootFaceHandle = pertinentRoots[v].front();
         face_handle_t currFaceHandle = rootFaceHandle;
         pertinentRoots[v].pop_front();
 
-        // Clear mergeStack before each walkdown
-        while (!mergeStack.empty()) {
-            mergeStack.pop();
-        }
+        mergeStack.clear();
 
         while (true) {
-            auto firstFaceItr = face_vertex_iterator<first_side>(currFaceHandle.firstVertex(), faceHandles);
-            auto secondFaceItr = face_vertex_iterator<second_side>(currFaceHandle.secondVertex(), faceHandles);
-            auto firstFaceEnd = face_vertex_iterator<first_side>(-1, faceHandles);
-            auto secondFaceEnd = face_vertex_iterator<second_side>(-1, faceHandles);
+            auto firstFaceItr = face_vertex_iterator<first_side>(currFaceHandle.firstVertex(), &faceHandles);
+            auto secondFaceItr = face_vertex_iterator<second_side>(currFaceHandle.secondVertex(), &faceHandles);
+            auto firstFaceEnd = face_vertex_iterator<first_side>(-1, &faceHandles);
+            auto secondFaceEnd = face_vertex_iterator<second_side>(-1, &faceHandles);
+
             int firstSideVertex = -1;
             int secondSideVertex = -1;
             int firstTail = currFaceHandle.getAnchor();
             int secondTail = firstTail;
 
-            // Find first pertinent or externally active vertex on first side
             for (; firstFaceItr != firstFaceEnd; ++firstFaceItr) {
                 int faceVertex = *firstFaceItr;
                 if (pertinent(faceVertex, v) || externally_active(faceVertex, v)) {
@@ -256,7 +278,6 @@ bool BoyerMyrvold::performWalkdown(int v) {
             if (firstSideVertex == -1 || firstSideVertex == currFaceHandle.getAnchor())
                 break;
 
-            // Find first pertinent or externally active vertex on second side
             for (; secondFaceItr != secondFaceEnd; ++secondFaceItr) {
                 int faceVertex = *secondFaceItr;
                 if (pertinent(faceVertex, v) || externally_active(faceVertex, v)) {
@@ -268,8 +289,6 @@ bool BoyerMyrvold::performWalkdown(int v) {
 
             int chosen;
             bool choseFirstUpperPath;
-
-            // Choose the path based on priorities
             if (internally_active(firstSideVertex, v)) {
                 chosen = firstSideVertex;
                 choseFirstUpperPath = true;
@@ -283,8 +302,7 @@ bool BoyerMyrvold::performWalkdown(int v) {
                 chosen = secondSideVertex;
                 choseFirstUpperPath = false;
             } else {
-                // Kuratowski case - non-planar graph detected
-                for (; firstFaceItr.currentVertex != firstFaceEnd.currentVertex; ++firstFaceItr) {
+                for (; *firstFaceItr != secondSideVertex; ++firstFaceItr) {
                     int p = *firstFaceItr;
                     if (pertinent(p, v)) {
                         kuratowskiV = v;
@@ -314,7 +332,7 @@ bool BoyerMyrvold::performWalkdown(int v) {
                 rootFaceHandle.setSecondVertex(secondSideVertex);
 
                 if (faceHandles[firstSideVertex].firstVertex() == firstTail)
-                    faceHandles[firstSideVertex].setSecondVertex(v);
+                    faceHandles[firstSideVertex].setFirstVertex(v);
                 else
                     faceHandles[firstSideVertex].setSecondVertex(v);
 
@@ -327,7 +345,7 @@ bool BoyerMyrvold::performWalkdown(int v) {
             }
 
             bool choseFirstLowerPath = (choseFirstUpperPath && faceHandles[chosen].firstVertex() == firstTail) ||
-                                     (!choseFirstUpperPath && faceHandles[chosen].firstVertex() == secondTail);
+                                       (!choseFirstUpperPath && faceHandles[chosen].firstVertex() == secondTail);
 
             if (backedgeFlag[chosen] == dfsNum[v]) {
                 w = chosen;
@@ -343,8 +361,8 @@ bool BoyerMyrvold::performWalkdown(int v) {
                         faceHandles[chosen].pushSecond(e, g);
                 }
             } else {
-                mergeStack.push(make_tuple(chosen, choseFirstUpperPath, choseFirstLowerPath));
-                currFaceHandle = *(pertinentRoots[chosen].begin());
+                mergeStack.push_back(make_tuple(chosen, choseFirstUpperPath, choseFirstLowerPath));
+                currFaceHandle = *pertinentRoots[chosen].begin();
                 continue;
             }
 
@@ -356,11 +374,11 @@ bool BoyerMyrvold::performWalkdown(int v) {
 
             while (!mergeStack.empty()) {
                 bottomPathFollowsFirst = nextBottomFollowsFirst;
-                tie(mergePoint, nextBottomFollowsFirst, topPathFollowsFirst) = mergeStack.top();
-                mergeStack.pop();
+                tie(mergePoint, nextBottomFollowsFirst, topPathFollowsFirst) = mergeStack.back();
+                mergeStack.pop_back();
 
                 topHandle = faceHandles[mergePoint];
-                bottomHandle = *(pertinentRoots[mergePoint].begin());
+                bottomHandle = *pertinentRoots[mergePoint].begin();
 
                 int bottomDfsChild = canonicalDfsChild[pertinentRoots[mergePoint].begin()->firstVertex()];
                 remove_vertex_from_separated_dfs_child_list(mergePoint);
@@ -400,7 +418,6 @@ bool BoyerMyrvold::performWalkdown(int v) {
 
     return true;
 }
-
 
 void BoyerMyrvold::store_old_face_handles(StoreOldHandlesPolicy& policy) {
     // Use the policy object to store old face handles

@@ -41,7 +41,7 @@ private:
     std::vector<bool> flipped;
     std::vector<int> vertices_by_dfs_num;
     std::vector<std::vector<std::pair<int, int>>> backedges;
-    std::stack<std::tuple<int, bool, bool>> mergeStack;
+    std::vector<std::tuple<int, bool, bool>> mergeStack;
     int kuratowskiV;
     int kuratowskiX;
     int kuratowskiY;
