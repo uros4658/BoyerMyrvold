@@ -1,5 +1,7 @@
 #include "../include/BoyerMyrvold.h"
 #include "../include/FaceHandle.h"
+#include "../include/Graph.h"
+#include "../include/face_vertex_iterator.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -13,6 +15,7 @@ using namespace std;
 BoyerMyrvold::BoyerMyrvold(Graph& graph) : g(graph) {
     initializeDataStructures();
 }
+
 StoreOldHandlesPolicy storeOldHandlesPolicy;
 StoreEmbeddingPolicy storeEmbeddingPolicy;
 
@@ -200,9 +203,10 @@ void BoyerMyrvold::performWalkup(int v) {
                     pertinentRoots[parent].push_front(dfsChildHandles[dfsChild]);
                 }
 
-                // Continue walkup from parent if needed
                 if (parent != v && visited[parent] != timestamp) {
-                    walkupItr = walkup_iterator_t(parent, faceHandles);
+                    // Destroy and reconstruct in place
+                    walkupItr.~walkup_iterator_t();
+                    new (&walkupItr) walkup_iterator_t(parent, faceHandles);
                     leadVertex = parent;
                 } else {
                     break;
@@ -231,14 +235,15 @@ bool BoyerMyrvold::performWalkdown(int v) {
         while (true) {
             auto firstFaceItr = face_vertex_iterator<first_side>(currFaceHandle.firstVertex(), faceHandles);
             auto secondFaceItr = face_vertex_iterator<second_side>(currFaceHandle.secondVertex(), faceHandles);
-            auto faceEnd = face_vertex_iterator<both_sides>(-1, faceHandles);
+            auto firstFaceEnd = face_vertex_iterator<first_side>(-1, faceHandles);
+            auto secondFaceEnd = face_vertex_iterator<second_side>(-1, faceHandles);
             int firstSideVertex = -1;
             int secondSideVertex = -1;
             int firstTail = currFaceHandle.getAnchor();
             int secondTail = firstTail;
 
             // Find first pertinent or externally active vertex on first side
-            for (; firstFaceItr.currentVertex != -1; ++firstFaceItr) {
+            for (; firstFaceItr != firstFaceEnd; ++firstFaceItr) {
                 int faceVertex = *firstFaceItr;
                 if (pertinent(faceVertex, v) || externally_active(faceVertex, v)) {
                     firstSideVertex = faceVertex;
@@ -252,7 +257,7 @@ bool BoyerMyrvold::performWalkdown(int v) {
                 break;
 
             // Find first pertinent or externally active vertex on second side
-            for (; secondFaceItr.currentVertex != -1; ++secondFaceItr) {
+            for (; secondFaceItr != secondFaceEnd; ++secondFaceItr) {
                 int faceVertex = *secondFaceItr;
                 if (pertinent(faceVertex, v) || externally_active(faceVertex, v)) {
                     secondSideVertex = faceVertex;
@@ -279,8 +284,8 @@ bool BoyerMyrvold::performWalkdown(int v) {
                 choseFirstUpperPath = false;
             } else {
                 // Kuratowski case - non-planar graph detected
-                for (auto itr = firstFaceItr; itr.currentVertex != secondSideVertex; ++itr) {
-                    int p = *itr;
+                for (; firstFaceItr.currentVertex != firstFaceEnd.currentVertex; ++firstFaceItr) {
+                    int p = *firstFaceItr;
                     if (pertinent(p, v)) {
                         kuratowskiV = v;
                         kuratowskiX = firstSideVertex;
@@ -309,7 +314,7 @@ bool BoyerMyrvold::performWalkdown(int v) {
                 rootFaceHandle.setSecondVertex(secondSideVertex);
 
                 if (faceHandles[firstSideVertex].firstVertex() == firstTail)
-                    faceHandles[firstSideVertex].setFirstVertex(v);
+                    faceHandles[firstSideVertex].setSecondVertex(v);
                 else
                     faceHandles[firstSideVertex].setSecondVertex(v);
 

@@ -11,4 +11,5 @@ add_executable(Implementation
         include/FaceHandle.h
         src/FaceHandle.cpp
         include/Policies.h
+        include/face_vertex_iterator.h
 )
