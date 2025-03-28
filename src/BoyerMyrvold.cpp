@@ -1,9 +1,8 @@
 #include "../include/BoyerMyrvold.h"
 #include "../include/FaceHandle.h"
 #include "../include/Graph.h"
-#include "../include/face_vertex_iterator.h"
+#include "../boost/graph/planar_face_traversal.hpp"
 #include <algorithm>
-#include <map>
 #include <set>
 #include <stack>
 #include <queue>
@@ -82,7 +81,6 @@ bool BoyerMyrvold::isPlanar() {
         }
     }
 
-    // Rest of your algorithm remains the same
     for (auto vi = vertices_by_dfs_num.rbegin(); vi != vertices_by_dfs_num.rend(); ++vi) {
         // store_old_face_handles(storeOldHandlesPolicy);
 
@@ -162,12 +160,12 @@ vector<int> BoyerMyrvold::findExternalFace(int root) {
 }
 
 void BoyerMyrvold::performWalkup(int v) {
-    typedef face_vertex_iterator<both_sides> walkup_iterator_t;
+    typedef boost::planar_face_traversal_visitor<Graph> visitor_t;
+    typedef boost::face_vertex_iterator<Graph, visitor_t> walkup_iterator_t;
 
     for (int w : g.adj[v]) {
         // Skip self-loops
         if (w == v) {
-            // self_loops.push_back(make_pair(v, v));
             continue;
         }
 
@@ -181,15 +179,16 @@ void BoyerMyrvold::performWalkup(int v) {
         backedgeFlag[w] = timestamp;
 
         // Initialize walkup iterators
-        walkup_iterator_t walkup_itr(w, &faceHandles);
-        walkup_iterator_t walkup_end(-1, &faceHandles);
+        walkup_iterator_t walkup_itr(w, g);
+        walkup_iterator_t walkup_end;
+
         int lead_vertex = w;
 
         while (true) {
             // Move to the root of the current bicomp or the first visited
             // vertex on the bicomp by going up each side in parallel
             while (walkup_itr != walkup_end &&
-                   walkup_itr.currentVertex != -1 &&
+                   walkup_itr.current_vertex() != -1 &&
                    visited[*walkup_itr] != timestamp) {
                 lead_vertex = *walkup_itr;
                 visited[lead_vertex] = timestamp;
@@ -200,7 +199,7 @@ void BoyerMyrvold::performWalkup(int v) {
             // seen before, update pertinent_roots with a handle to the
             // current bicomp. Otherwise, we've just seen a path we've been
             // up before, so break out of the main while loop.
-            if (walkup_itr == walkup_end || walkup_itr.currentVertex == -1) {
+            if (walkup_itr == walkup_end || walkup_itr.current_vertex() == -1) {
                 int dfs_child = canonicalDfsChild[lead_vertex];
                 if (dfs_child != -1) {
                     int parent = dfsParent[dfs_child];
@@ -226,7 +225,7 @@ void BoyerMyrvold::performWalkup(int v) {
                         if (parent != v &&
                             parent >= 0 && parent < visited.size() &&
                             visited[parent] != timestamp) {
-                            walkup_itr = walkup_iterator_t(parent, &faceHandles);
+                            walkup_itr = walkup_iterator_t(parent, g);
                             lead_vertex = parent;
                         } else {
                             break;
