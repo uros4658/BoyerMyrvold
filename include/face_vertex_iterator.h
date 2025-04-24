@@ -10,6 +10,7 @@ enum Side { first_side, second_side, both_sides };
 template <Side side>
 class face_vertex_iterator {
 public:
+    face_vertex_iterator() : currentVertex(-1), faceHandles(nullptr), firstSideItr(-1), secondSideItr(-1) {}
     // Constructor
     face_vertex_iterator(int startVertex, const std::vector<face_handle_t>* faceHandles)
         : currentVertex(startVertex), faceHandles(faceHandles) {

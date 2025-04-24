@@ -3,6 +3,8 @@ project(Implementation)
 
 set(CMAKE_CXX_STANDARD 17)
 
+include_directories(${CMAKE_SOURCE_DIR}/Implementation)
+
 add_executable(Implementation
         src/main.cpp
         src/BoyerMyrvold.cpp

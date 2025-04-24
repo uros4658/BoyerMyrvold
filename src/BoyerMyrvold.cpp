@@ -1,7 +1,8 @@
 #include "../include/BoyerMyrvold.h"
 #include "../include/FaceHandle.h"
 #include "../include/Graph.h"
-#include "../boost/graph/planar_face_traversal.hpp"
+#include "../include/face_vertex_iterator.h"
+#include "../include/planar_face_traversal_visitor.h"
 #include <algorithm>
 #include <set>
 #include <stack>
@@ -51,6 +52,11 @@ bool BoyerMyrvold::isPlanar() {
         lowPoint[v] = dfsNum[v];
         leastAncestor[v] = g.V; // Initialize to a high value
 
+        // Initialize face handle for the vertex
+        faceHandles[v].setFirstVertex(v);
+        faceHandles[v].setSecondVertex(v);
+        faceHandles[v].setAnchor(v);
+
         for (int w : g.adj[v]) {
             if (!dfsVisited[w]) {
                 // Tree edge
@@ -58,18 +64,30 @@ bool BoyerMyrvold::isPlanar() {
                 dfs(w, v);
                 lowPoint[v] = min(lowPoint[v], lowPoint[w]);
 
-                // Set up DFS child handles
+                // Set up DFS child handles - CRITICAL PART
                 dfsChildHandles[w].setFirstVertex(v);
                 dfsChildHandles[w].setSecondVertex(w);
                 dfsChildHandles[w].setAnchor(w);
 
+                // Update face handles to create initial embedding
+                faceHandles[v].setFirstVertex(w);
+                faceHandles[w].setFirstVertex(v);
+
                 // Initialize canonical DFS child
                 canonicalDfsChild[w] = w;
             }
-            else if (w != parent && dfsNum[w] < dfsNum[v]) {
-                // Back edge to ancestor
-                leastAncestor[v] = min(leastAncestor[v], dfsNum[w]);
-                lowPoint[v] = min(lowPoint[v], dfsNum[w]);
+            else if (w != parent) {
+                // Back edge to any non-parent vertex
+                if (dfsNum[w] < dfsNum[v]) {
+                    // Back edge to ancestor
+                    leastAncestor[v] = min(leastAncestor[v], dfsNum[w]);
+                    lowPoint[v] = min(lowPoint[v], dfsNum[w]);
+
+                    // Record backedge in both directions
+                    backedges[v].push_back(make_pair(v, w));
+                    backedges[w].push_back(make_pair(w, v));
+                }
+                // Note: Edges to later vertices are handled during walkup
             }
         }
     };
@@ -81,10 +99,15 @@ bool BoyerMyrvold::isPlanar() {
         }
     }
 
+    // Process vertices in reverse DFS order (bottom-up)
     for (auto vi = vertices_by_dfs_num.rbegin(); vi != vertices_by_dfs_num.rend(); ++vi) {
-        // store_old_face_handles(storeOldHandlesPolicy);
-
         int v = *vi;
+
+        // Clear pertinent roots for current vertex before walkup
+        pertinentRoots[v].clear();
+
+        // Reset visited flags for the walkup phase
+        fill(visited.begin(), visited.end(), 0);
 
         performWalkup(v);
 
@@ -93,11 +116,8 @@ bool BoyerMyrvold::isPlanar() {
         }
     }
 
-    clean_up_embedding(storeEmbeddingPolicy);
-
     return true;
 }
-
 bool BoyerMyrvold::pertinent(int vertex, int v) {
     return !backedges[vertex].empty() || backedgeFlag[vertex] == dfsNum[v];
 }
@@ -160,51 +180,44 @@ vector<int> BoyerMyrvold::findExternalFace(int root) {
 }
 
 void BoyerMyrvold::performWalkup(int v) {
-    typedef boost::planar_face_traversal_visitor<Graph> visitor_t;
-    typedef boost::face_vertex_iterator<Graph, visitor_t> walkup_iterator_t;
+    typedef face_vertex_iterator<first_side> walkup_iterator_t;
 
+    // Process all adjacents to find backedges
     for (int w : g.adj[v]) {
-        // Skip self-loops
-        if (w == v) {
-            continue;
-        }
+        if (w == v) continue; // Skip self-loops
 
-        // Skip if not a back edge or already embedded
-        if (dfsNum[w] < dfsNum[v] || w == dfsParent[v])
-            continue;
+        // Only process backedges to descendants (higher DFS number)
+        if (dfsNum[w] <= dfsNum[v] || w == dfsParent[v]) continue;
 
         // Record backedge
-        backedges[w].push_back(make_pair(w, v));
-        int timestamp = dfsNum[v];
-        backedgeFlag[w] = timestamp;
+        backedges[v].push_back(make_pair(v, w));
+        backedges[w].push_back(make_pair(w, v)); // Also record the other direction
 
-        // Initialize walkup iterators
-        walkup_iterator_t walkup_itr(w, g);
+        int timestamp = dfsNum[v];
+        backedgeFlag[w] = timestamp; // Mark w as having a backedge to v
+
+        // Initialize walkup iterator starting at w
+        walkup_iterator_t walkup_itr(w, &faceHandles);
         walkup_iterator_t walkup_end;
 
         int lead_vertex = w;
 
+        // Begin walkup traversal
         while (true) {
-            // Move to the root of the current bicomp or the first visited
-            // vertex on the bicomp by going up each side in parallel
-            while (walkup_itr != walkup_end &&
-                   walkup_itr.current_vertex() != -1 &&
-                   visited[*walkup_itr] != timestamp) {
+            // Follow the face until we find a visited vertex
+            while (walkup_itr != walkup_end && visited[*walkup_itr] != timestamp) {
                 lead_vertex = *walkup_itr;
                 visited[lead_vertex] = timestamp;
                 ++walkup_itr;
             }
 
-            // If we've found the root of a bicomp through a path we haven't
-            // seen before, update pertinent_roots with a handle to the
-            // current bicomp. Otherwise, we've just seen a path we've been
-            // up before, so break out of the main while loop.
-            if (walkup_itr == walkup_end || walkup_itr.current_vertex() == -1) {
+            // Handle end of path
+            if (walkup_itr == walkup_end || walkup_itr.currentVertex == -1) {
                 int dfs_child = canonicalDfsChild[lead_vertex];
                 if (dfs_child != -1) {
                     int parent = dfsParent[dfs_child];
                     if (parent != -1) {
-                        // Mark endpoints as visited
+                        // Mark face endpoints as visited
                         int firstVertex = dfsChildHandles[dfs_child].firstVertex();
                         int secondVertex = dfsChildHandles[dfs_child].secondVertex();
 
@@ -213,19 +226,20 @@ void BoyerMyrvold::performWalkup(int v) {
                         if (secondVertex >= 0 && secondVertex < visited.size())
                             visited[secondVertex] = timestamp;
 
-                        // Add to pertinent roots based on priority
+                        // Add to pertinentRoots - CRITICAL PART FOR FIXING THE ISSUE
                         if (lowPoint[dfs_child] < dfsNum[v] ||
                             leastAncestor[dfs_child] < dfsNum[v]) {
+                            // Higher priority - lower lowPoint or leastAncestor
                             pertinentRoots[parent].push_back(dfsChildHandles[dfs_child]);
                         } else {
                             pertinentRoots[parent].push_front(dfsChildHandles[dfs_child]);
                         }
 
-                        // Continue from parent if not visited and not v
+                        // Continue walkup from parent if not already visited and not at v
                         if (parent != v &&
                             parent >= 0 && parent < visited.size() &&
                             visited[parent] != timestamp) {
-                            walkup_itr = walkup_iterator_t(parent, g);
+                            walkup_itr = walkup_iterator_t(parent, &faceHandles);
                             lead_vertex = parent;
                         } else {
                             break;
