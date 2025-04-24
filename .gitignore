@@ -5,11 +5,16 @@
 !include/
 !src/
 !.gitignore
+!,g6
 
 # Only include .h and .cpp files in include and src directories
 include/*
 !include/**/*.h
 !include/**/*.cpp
+!testGraphs
+!testGraphs/*
+!testGraphs/non-planar.g6
+!testGraphs/planar.g6
 
 src/*
 !src/**/*.h
